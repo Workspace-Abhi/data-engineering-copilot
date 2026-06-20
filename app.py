@@ -136,6 +136,25 @@ st.markdown("""
         transform: translateY(-1px) !important;
         box-shadow: 0 6px 16px rgba(56, 189, 248, 0.3) !important;
     }
+    /* Glassmorphic elements */
+    code, pre {
+        background-color: rgba(15, 23, 42, 0.5) !important;
+        border: 1px solid rgba(255, 255, 255, 0.05) !important;
+        border-radius: 8px !important;
+    }
+    .streamlit-expanderHeader {
+        background-color: rgba(15, 23, 42, 0.4) !important;
+        border: 1px solid rgba(255, 255, 255, 0.05) !important;
+        border-radius: 8px !important;
+    }
+    div[data-baseweb="select"] > div {
+        background-color: rgba(15, 23, 42, 0.6) !important;
+        border-color: rgba(255, 255, 255, 0.1) !important;
+    }
+    input, textarea {
+        background-color: rgba(15, 23, 42, 0.6) !important;
+        border-color: rgba(255, 255, 255, 0.1) !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 

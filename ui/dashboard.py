@@ -389,9 +389,9 @@ drift_stat, p_value = stats.ks_2samp(ref_data, curr_data)
 
         if selected_agent in REVERSE_MAP:
             cat, display_name = REVERSE_MAP[selected_agent]
-            st.session_state["workspace_category_select"] = cat
-            st.session_state["workspace_module_radio"]    = display_name
-            st.session_state["active_category"]           = cat
-            st.session_state["active_module_display"]     = display_name
-            st.session_state["active_module"]             = selected_agent
+            # Only set non-widget keys; sidebar reads these to set its index
+            st.session_state["active_category"]       = cat
+            st.session_state["active_module_display"] = display_name
+            st.session_state["active_module"]         = selected_agent
             st.rerun()
+

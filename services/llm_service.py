@@ -57,249 +57,312 @@ class OllamaService:
         # If Ollama is not connected, default to simulated mode to prevent errors
         return not self.check_connection()
 
+    def _extract_vars(self, prompt: str) -> Dict:
+        """Helper to dynamically parse source/target/keys variables from prompt for simulation."""
+        import re
+        
+        # Dialect extraction
+        dialect = "SQL Server"
+        dialects = ["mysql", "postgresql", "oracle", "snowflake", "bigquery", "sqlserver"]
+        for d in dialects:
+            if d in prompt.lower():
+                dialect = d.capitalize()
+                if dialect == "Sqlserver":
+                    dialect = "SQL Server / Synapse"
+                break
+                
+        # Parse table names/paths (regex matching /mnt/... or schema.table or plain name)
+        tables = re.findall(r'(?:[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+|/[a-zA-Z0-9_/-]+|[a-zA-Z0-9_]+_table|[a-zA-Z0-9_]+_path)', prompt)
+        source = "/mnt/staging/customers"
+        target = "/mnt/delta/customers"
+        
+        # Try to find specific inputs
+        if len(tables) >= 2:
+            source = tables[0]
+            target = tables[1]
+        elif len(tables) == 1:
+            target = tables[0]
+            source = tables[0] + "_stg"
+            
+        # Parse key columns
+        keys = ["customer_id"]
+        key_match = re.search(r'(?:key_columns|key_cols|keys?|primary_keys?|key_fields?):\s*([a-zA-Z0-9_, ]+)', prompt, re.IGNORECASE)
+        if key_match:
+            keys = [k.strip() for k in key_match.group(1).split(",")]
+            
+        # Parse tracking/update columns
+        update_cols = ["name", "email", "status", "updated_at"]
+        update_match = re.search(r'(?:update_cols|update_columns|track_cols|columns|cols):\s*([a-zA-Z0-9_, ]+)', prompt, re.IGNORECASE)
+        if update_match:
+            update_cols = [c.strip() for c in update_match.group(1).split(",")]
+
+        return {
+            "dialect": dialect,
+            "source": source,
+            "target": target,
+            "keys": keys,
+            "update_cols": update_cols
+        }
+
     def _simulated_generate(self, prompt: str, system_prompt: str = None) -> str:
-        """Generate a high-fidelity mock response for data engineering agents."""
+        """Generate a high-fidelity dynamic mock response for data engineering agents."""
         prompt_lower = prompt.lower()
         sys_prompt_lower = (system_prompt or "").lower()
+        
+        # Extract variables from prompt dynamically
+        v = self._extract_vars(prompt)
+        join_cond = " AND ".join([f"T.{k} = S.{k}" for k in v["keys"]])
+        updates_set = ", ".join([f"T.{col} = S.{col}" for col in v["update_cols"]])
+        cols_list = ", ".join(v["keys"] + v["update_cols"])
+        s_cols_list = ", ".join([f"S.{col}" for col in v["keys"] + v["update_cols"]])
 
         # 1. SQL Agent
         if "sql" in sys_prompt_lower or "sql" in prompt_lower or "reconcile" in prompt_lower:
             if "validate" in prompt_lower:
-                return """### SQL Query Validation Report
+                return f"""### SQL Query Validation Report
 
-*   **Dialect**: SQL Server / Synapse Analytics
+*   **Dialect**: {v["dialect"]}
 *   **Status**: ⚠️ Validation Completed (with Warnings)
 
 #### 🔍 Analysis Summary
 
 | Severity | Category | Description | Recommendation |
 | :--- | :--- | :--- | :--- |
-| ⚠️ **Warning** | Performance | Subquery inside `IN` clause can lead to expensive table scans. | Rewrite using `EXISTS` or perform an `INNER JOIN`. |
 | ⚠️ **Warning** | Performance | Column `ModifiedDate` is used in filtering without a proper index. | Create a non-clustered index on `ModifiedDate`. |
-| 🟢 **Info** | Best Practice | Lowercase SQL keywords detected. | Capitalize SQL statements for style consistency (`select` ➔ `SELECT`). |
+| ⚠️ **Warning** | Performance | Inefficient outer join detected on source table `{v["source"]}`. | Convert to an `INNER JOIN` if nullable rows are not required. |
+| 🟢 **Info** | Style | Lowercase SQL keywords detected. | Capitalize SELECT, WHERE, FROM to keep SQL code tidy. |
 
 #### 💡 Optimized Query Recommendation
 
 ```sql
--- Original query optimized for performance and style
 SELECT 
-    c.CustomerID,
-    c.Name,
-    c.Email
-FROM dbo.Customers AS c
-WHERE EXISTS (
-    SELECT 1 
-    FROM dbo.Orders AS o 
-    WHERE o.CustomerID = c.CustomerID 
-      AND o.OrderDate >= '2026-01-01'
-);
+    c.{v["keys"][0] if v["keys"] else "ID"},
+    c.{v["update_cols"][0] if v["update_cols"] else "Name"}
+FROM {v["source"]} AS c
+WHERE c.ModifiedDate >= '2026-01-01';
 ```"""
             elif "reconcile" in prompt_lower:
-                return """### Data Reconciliation Query Generated
+                return f"""### Data Reconciliation Query Generated
 
-Here is a robust SQL template to reconcile source and target tables, detecting row mismatches and discrepancy metrics:
+Here is a reconciliation template dynamically built to match rows and detect mismatches between `{v["source"]}` and `{v["target"]}`:
 
 ```sql
--- Data Reconciliation Report
+-- Reconciliation query for {v["target"]}
 WITH SourceCount AS (
-    SELECT COUNT(*) AS SourceTotal FROM (SELECT * FROM dbo.SourceCustomers) AS S
+    SELECT COUNT(*) AS SourceTotal FROM (SELECT * FROM {v["source"]}) AS S
 ),
 TargetCount AS (
-    SELECT COUNT(*) AS TargetTotal FROM (SELECT * FROM dbo.TargetCustomers) AS T
+    SELECT COUNT(*) AS TargetTotal FROM (SELECT * FROM {v["target"]}) AS T
 ),
 MissingInTarget AS (
-    SELECT S.CustomerID
-    FROM (SELECT * FROM dbo.SourceCustomers) AS S
-    LEFT JOIN (SELECT * FROM dbo.TargetCustomers) AS T ON S.CustomerID = T.CustomerID
-    WHERE T.CustomerID IS NULL
+    SELECT S.{v["keys"][0]}
+    FROM (SELECT * FROM {v["source"]}) AS S
+    LEFT JOIN (SELECT * FROM {v["target"]}) AS T ON S.{v["keys"][0]} = T.{v["keys"][0]}
+    WHERE T.{v["keys"][0]} IS NULL
 ),
 MissingInSource AS (
-    SELECT T.CustomerID
-    FROM (SELECT * FROM dbo.TargetCustomers) AS T
-    LEFT JOIN (SELECT * FROM dbo.SourceCustomers) AS S ON S.CustomerID = T.CustomerID
-    WHERE S.CustomerID IS NULL
+    SELECT T.{v["keys"][0]}
+    FROM (SELECT * FROM {v["target"]}) AS T
+    LEFT JOIN (SELECT * FROM {v["source"]}) AS S ON S.{v["keys"][0]} = T.{v["keys"][0]}
+    WHERE S.{v["keys"][0]} IS NULL
 )
 SELECT 'Source Total' AS Metric, CAST(SourceTotal AS VARCHAR) AS Value FROM SourceCount
 UNION ALL
 SELECT 'Target Total' AS Metric, CAST(TargetTotal AS VARCHAR) AS Value FROM TargetCount
 UNION ALL
-SELECT 'Missing in Target' AS Metric, CAST(COUNT(*) AS VARCHAR) AS Value FROM MissingInTarget
+SELECT 'Missing in Target (Orphaned)' AS Metric, CAST(COUNT(*) AS VARCHAR) AS Value FROM MissingInTarget
 UNION ALL
-SELECT 'Missing in Source' AS Metric, CAST(COUNT(*) AS VARCHAR) AS Value FROM MissingInSource;
+SELECT 'Missing in Source (Stale)' AS Metric, CAST(COUNT(*) AS VARCHAR) AS Value FROM MissingInSource;
 ```"""
             else:
-                return """### SQL MERGE Query Generated
+                return f"""### Dynamic SQL MERGE Query Generated
 
-Here is an optimized ANSI SQL MERGE query to upsert data from a staging table into your target production table.
+Here is an optimized MERGE statement generated dynamically to upsert changes from `{v["source"]}` into target `{v["target"]}`:
 
 ```sql
--- ANSI SQL MERGE Statement
-MERGE INTO dbo.Customers AS T
-USING staging.Customers AS S
-    ON S.CustomerID = T.CustomerID
+-- MERGE Statement targeting {v["target"]}
+MERGE INTO {v["target"]} AS T
+USING {v["source"]} AS S
+    ON {join_cond}
 WHEN MATCHED THEN
     UPDATE SET 
-        T.Name = S.Name,
-        T.Email = S.Email,
+        {updates_set},
         T.ModifiedDate = GETDATE()
 WHEN NOT MATCHED BY TARGET THEN
-    INSERT (CustomerID, Name, Email, ModifiedDate)
-    VALUES (S.CustomerID, S.Name, S.Email, GETDATE());
+    INSERT ({cols_list}, ModifiedDate)
+    VALUES ({s_cols_list}, GETDATE());
 ```"""
 
         # 2. Databricks Agent
         elif "databricks" in sys_prompt_lower or "pyspark" in prompt_lower or "spark" in prompt_lower or "scd" in prompt_lower:
-            return """### PySpark SCD Type 2 Implementation (Slowly Changing Dimensions)
+            if "scd type 2" in prompt_lower or "scd2" in prompt_lower:
+                return f"""### PySpark SCD Type 2 Template (History Tracking)
 
-Here is a production-ready PySpark script to run an **SCD Type 2 (History Tracking)** merge into a Delta Lake table.
+The PySpark script below dynamically performs an **SCD Type 2 History Merge** from source `{v["source"]}` into Delta target `{v["target"]}` using key columns `{v["keys"]}`.
 
 ```python
 from delta.tables import DeltaTable
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import current_date, lit, col
 
-spark = SparkSession.builder \\
-    .appName("Delta_SCD_Type2") \\
-    .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") \\
-    .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog") \\
-    .getOrCreate()
+spark = SparkSession.builder.appName("SCD_Type2").getOrCreate()
 
-# Target Delta table path
-target_path = "/mnt/delta/dim_customers"
-target_table = DeltaTable.forPath(spark, target_path)
+# Target Delta table
+target_table = DeltaTable.forPath(spark, "{v["target"]}")
 
-# Incoming updates
-source_df = spark.read.format("delta").load("/mnt/delta/stg_customers")
+# Incoming Source updates
+source_df = spark.read.format("delta").load("{v["source"]}")
 
-# Step 1: Close existing records that match but have changes
-merge_condition = "target.CustomerID = source.CustomerID AND target.is_current = true"
+# Expire current matching records
+expire_cond = "{" AND ".join([f'target.{k} = source.{k}' for k in v["keys"]])} AND target.is_current = true"
 target_table.alias("target").merge(
     source_df.alias("source"),
-    merge_condition
-).whenMatchedUpdate(set={
+    expire_cond
+).whenMatchedUpdate(set={{
     "end_date": "current_date() - 1",
     "is_current": "lit(false)"
-}).execute()
+}}).execute()
 
-# Step 2: Append new active records
+# Insert new active records
 new_records = source_df \\
-    .withColumn("effective_date", current_date()) \\
+    .withColumn("start_date", current_date()) \\
     .withColumn("end_date", lit(None).cast("date")) \\
     .withColumn("is_current", lit(True))
 
-new_records.write.format("delta").mode("append").save(target_path)
-print("SCD Type 2 Merge Completed Successfully!")
+new_records.write.format("delta").mode("append").save("{v["target"]}")
+print("SCD Type 2 Dynamic Merge Completed!")
+```"""
+            elif "scd type 1" in prompt_lower or "scd1" in prompt_lower:
+                set_mapping = ", ".join([f'"{c}": "source.{c}"' for c in v["update_cols"]])
+                return f"""### PySpark SCD Type 1 Template (Direct Overwrite)
+
+The PySpark script below dynamically performs an **SCD Type 1 Overwrite Merge** from source `{v["source"]}` into Delta target `{v["target"]}`.
+
+```python
+from delta.tables import DeltaTable
+from pyspark.sql import SparkSession
+
+spark = SparkSession.builder.appName("SCD_Type1").getOrCreate()
+
+# Execute Merge Operation
+target_table = DeltaTable.forPath(spark, "{v["target"]}")
+source_df = spark.read.format("delta").load("{v["source"]}")
+
+join_cond = "{" AND ".join([f'target.{k} = source.{k}' for k in v["keys"] if v["keys"]])}"
+
+target_table.alias("target") \\
+    .merge(source_df.alias("source"), join_cond) \\
+    .whenMatchedUpdate(set={{{set_mapping}}}) \\
+    .whenNotMatchedInsertAll() \\
+    .execute()
+```"""
+            else:
+                return f"""### Dynamic Delta Table Optimization Query
+
+Optimize target Delta path `{v["target"]}` to cluster records:
+
+```sql
+OPTIMIZE delta.`{v["target"]}`
+ZORDER BY ({v["keys"][0] if v["keys"] else "customer_id"});
 ```
 
-#### ⚡ Delta Table Best Practices
-1.  **Z-Ordering**: Apply `OPTIMIZE target_table ZORDER BY (CustomerID)` on frequently queried keys.
-2.  **Vacuuming**: Periodic vacuuming cleans up stale files (`deltaTable.vacuum(168)`)."""
+*   **Vacuum command** to delete older transaction files:
+```sql
+VACUUM delta.`{v["target"]}` RETAIN 168 HOURS;
+```"""
 
         # 3. ADF Agent
         elif "adf" in sys_prompt_lower or "azure data factory" in prompt_lower or "pipeline" in prompt_lower:
-            return """### Azure Data Factory Watermark Pipeline Setup
+            return f"""### Azure Data Factory Watermark Pipeline for {v["target"]}
 
-To implement a watermark-based incremental copy in ADF, you require a 3-step pipeline:
-1.  **Lookup Old Watermark**: Read the last processed timestamp from the target config.
-2.  **Lookup New Watermark**: Read the maximum timestamp currently in the source.
-3.  **Copy Data**: Extract rows from source where `WatermarkDate > LastWatermark` and write to target.
-
-#### 🔷 ADF Pipeline Definition Snippet (JSON)
+Dynamic incremental metadata pipeline configuration mapping `{v["source"]}` columns:
 
 ```json
-{
-  "name": "IncrementalCopyPipeline",
-  "properties": {
+{{
+  "name": "Incremental_{v["target"].split("/")[-1].split(".")[-1]}",
+  "properties": {{
     "activities": [
-      {
+      {{
         "name": "LookupOldWatermark",
         "type": "Lookup",
-        "typeProperties": {
-          "source": {
+        "typeProperties": {{
+          "source": {{
             "type": "AzureSqlSource",
-            "sqlReaderQuery": "SELECT LastValue FROM dbo.WatermarkTable WHERE TableName = 'dbo.Customers'"
-          },
-          "dataset": { "referenceName": "WatermarkDB", "type": "DatasetReference" }
-        }
-      },
-      {
-        "name": "CopyData",
+            "sqlReaderQuery": "SELECT LastValue FROM dbo.WatermarkTable WHERE TableName = '{v["target"]}'"
+          }}
+        }}
+      }},
+      {{
+        "name": "LookupNewWatermark",
+        "type": "Lookup",
+        "typeProperties": {{
+          "source": {{
+            "type": "AzureSqlSource",
+            "sqlReaderQuery": "SELECT MAX({v["update_cols"][-1] if v["update_cols"] else "ModifiedDate"}) FROM {v["source"]}"
+          }}
+        }}
+      }},
+      {{
+        "name": "CopyIncrementalData",
         "type": "Copy",
         "dependsOn": [
-          { "activity": "LookupOldWatermark", "dependencyConditions": ["Succeeded"] }
+          {{ "activity": "LookupOldWatermark", "dependencyConditions": ["Succeeded"] }},
+          {{ "activity": "LookupNewWatermark", "dependencyConditions": ["Succeeded"] }}
         ],
-        "typeProperties": {
-          "source": {
+        "typeProperties": {{
+          "source": {{
             "type": "AzureSqlSource",
-            "sqlReaderQuery": {
-              "value": "SELECT * FROM dbo.Customers WHERE ModifiedDate > '@{activity('LookupOldWatermark').output.firstRow.LastValue}'",
+            "sqlReaderQuery": {{
+              "value": "SELECT * FROM {v["source"]} WHERE {v["update_cols"][-1] if v["update_cols"] else "ModifiedDate"} > '@{{activity('LookupOldWatermark').output.firstRow.LastValue}}' AND {v["update_cols"][-1] if v["update_cols"] else "ModifiedDate"} <= '@{{activity('LookupNewWatermark').output.firstRow.MaxWatermark}}'",
               "type": "Expression"
-            }
-          },
-          "sink": { "type": "AzureSqlSink", "writeBehavior": "upsert" }
-        }
-      }
+            }}
+          }},
+          "sink": {{ "type": "AzureSqlSink" }}
+        }}
+      }}
     ]
-  }
-}
-```
-
-#### ⚙️ Dynamic Expression Template
-To dynamically create a folder path by year/month/day in your sink dataset:
-`@concat('raw/customers/', formatDateTime(utcnow(), 'yyyy/MM/dd'))`"""
+  }}
+}}
+```"""
 
         # 4. Dataverse Agent
         elif "dataverse" in sys_prompt_lower or "dataverse" in prompt_lower or "mapping" in prompt_lower:
-            return """### Microsoft Dataverse Ingestion and Mapping
+            field_mappings_md = ""
+            for key in v["keys"]:
+                field_mappings_md += f"| `{key}` | `cr234_{key.lower()}` | Single Line of Text (Key) | Primary Key |\n"
+            for col in v["update_cols"]:
+                field_mappings_md += f"| `{col}` | `cr234_{col.lower()}` | Single Line of Text | Field |\n"
 
-Here is the recommended field mapping and ingestion script for Dataverse.
+            return f"""### Dynamic Microsoft Dataverse Entity Schema Mappings
 
-#### 📋 Schema Mapping Guide
+#### 📋 Mapping Details for target `{v["target"]}`:
 
 | Source Column | Dataverse Column | Dataverse Type | Logical Name |
 | :--- | :--- | :--- | :--- |
-| `CustomerID` | `cr_customerid` | Single Line of Text (Key) | Primary Key |
-| `Name` | `cr_name` | Single Line of Text | Name |
-| `Email` | `cr_emailaddress` | Email | Email Address |
-| `Status` | `cr_statuscode` | Choice (OptionSet) | Status Code |
+{field_mappings_md}
 
-#### 🐍 Python SDK Ingestion script using MSAL Auth
-
+#### 🐍 Python SDK Ingestion script (OData Alternate Keys)
 ```python
 import requests
 import json
-from msal import ConfidentialClientApplication
 
-# Auth Configuration
-authority_url = "https://login.microsoftonline.com/YOUR_TENANT_ID"
-client_id = "YOUR_CLIENT_ID"
-client_secret = "YOUR_CLIENT_SECRET"
-resource_url = "https://YOUR_ORG.crm.dynamics.com"
+# alternate key patch url
+url = "https://yourorg.crm.dynamics.com/api/data/v9.2/cr234_customers(cr234_id='{v["keys"][0] if v["keys"] else "customer_id"}')"
+payload = {{
+    "cr234_name": "Dynamic Acme Corp",
+    "cr234_status": 841200000
+}}
 
-app = ConfidentialClientApplication(client_id, authority=authority_url, client_secret=client_secret)
-token_result = app.acquire_token_for_client(scopes=[f"{resource_url}/.default"])
-access_token = token_result['access_token']
-
-# API Call to upsert contact
-headers = {
-    "Authorization": f"Bearer {access_token}",
+headers = {{
+    "Authorization": "Bearer TOKEN_STRING",
     "Accept": "application/json",
     "Content-Type": "application/json",
     "OData-MaxVersion": "4.0",
-    "OData-Version": "4.0",
-    "Prefer": "return=representation"
-}
+    "OData-Version": "4.0"
+}}
 
-payload = {
-    "cr_name": "John Doe",
-    "cr_emailaddress": "john.doe@example.com",
-    "cr_statuscode": 841200000 # Option Set value
-}
-
-# Upsert (using alternate key)
-url = f"{resource_url}/api/data/v9.2/cr_customers(cr_customerid='CUST-100')"
 response = requests.patch(url, headers=headers, data=json.dumps(payload))
-print(f"Dataverse Response: {response.status_code}")
+print("Dataverse PATCH Status:", response.status_code)
 ```"""
 
         # 5. Jira Agent
@@ -309,14 +372,10 @@ print(f"Dataverse Response: {response.status_code}")
 *   **Identified Workstream**: Core Data Pipeline Migration
 *   **Complexity Estimate**: 🟢 Medium (5 Story Points)
 
-#### 📝 Issue Breakdown
-
-> **Description Summary**: The ingestion pipeline fails to parse date formats from legacy CSV files when they contain empty trailing rows.
-
 #### 🔧 Step-by-Step Remediation Plan
 
 1.  **Step 1: Raw Parser Schema Update**
-    Modify `utils/file_parser.py` to allow optional dates and handle blank rows by configuring the pandas engine to ignore trailing empty lines (`skip_blank_lines=True`).
+    Modify `utils/file_parser.py` to allow optional dates and handle blank rows by configuring the pandas engine to ignore trailing empty lines.
 2.  **Step 2: PySpark Schema Coercion**
     Update the Databricks notebook load step to parse date columns using `to_date(col("date_raw"), "yyyy-MM-dd")` instead of relying on automatic type inference.
 3.  **Step 3: Unit Testing Validation**
@@ -352,7 +411,7 @@ The team discussed replacing the current ADF Copy Activities with PySpark notebo
         elif "ppt" in sys_prompt_lower or "deck" in prompt_lower or "ppt" in prompt_lower or "presentation" in prompt_lower:
             return """### Executive PowerPoint Storyline: Legacy Migration
 
-Here is a 5-slide structured storyline script designed for C-level presentation.
+Here is a structured storyline script designed for C-level presentation.
 
 ---
 
@@ -559,7 +618,10 @@ To exit Simulation Mode:
                 )
                 response.raise_for_status()
                 data = response.json()
-                embeddings.append(data.get("embedding", []))
+                embedding = data.get("embedding")
+                if embedding is None or not isinstance(embedding, list):
+                    raise ValueError(f"Ollama returned invalid embedding: {data}")
+                embeddings.append(embedding)
             except Exception as e:
                 logger.error(f"Embedding failed for text: {e}")
                 # Fallback to hash-based mock embedding
@@ -572,7 +634,9 @@ To exit Simulation Mode:
     def embed_single(self, text: str) -> List[float]:
         """Generate embedding for a single text."""
         result = self.embed([text])
-        return result[0] if result else []
+        if result and result[0] is not None:
+            return result[0]
+        return []
 
 
 

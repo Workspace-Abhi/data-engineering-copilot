@@ -136,6 +136,13 @@ class RAGService:
         self.client = None
         self.collection = None
         self._init_chroma()
+        
+        # Preseed database with expert data engineering documentation if empty
+        try:
+            if self.count() == 0:
+                self.preseed_database()
+        except Exception as e:
+            logger.error(f"Failed to check or preseed database: {e}")
 
     def _init_chroma(self):
         """Initialize ChromaDB client, falling back to InMemoryCollection on failure."""
@@ -155,6 +162,56 @@ class RAGService:
             logger.warning(f"ChromaDB initialization failed: {e}. Falling back to InMemoryCollection.")
             self.collection = InMemoryCollection(self.persist_dir)
             self.is_fallback = True
+
+    def preseed_database(self):
+        """Preseed the vector store with high-fidelity expert data engineering documentation."""
+        preseed_dir = Path(__file__).parent.parent / "knowledge_base" / "preseeded_kb"
+        if not preseed_dir.exists():
+            logger.warning(f"Preseed directory {preseed_dir} does not exist. Skipping pre-population.")
+            return
+
+        logger.info("Preseeding knowledge database with expert markdown blueprints...")
+        documents = []
+        metadatas = []
+        ids = []
+
+        for filepath in preseed_dir.glob("*.md"):
+            try:
+                with open(filepath, "r", encoding="utf-8") as f:
+                    content = f.read()
+
+                file_name = filepath.name
+                meta = {
+                    "file_name": file_name,
+                    "type": "md",
+                    "length": len(content)
+                }
+
+                from utils.chunking import chunk_document
+                chunks = chunk_document(content, "md")
+
+                import uuid
+                for chunk in chunks:
+                    doc_id = f"preseeded_{filepath.stem}_{uuid.uuid4().hex[:8]}_{chunk['index']}"
+                    documents.append(chunk["text"])
+                    metadatas.append({
+                        **meta,
+                        "chunk_index": chunk["index"],
+                        "chunk_type": chunk["type"],
+                        "parent_text": chunk.get("parent_text", ""),
+                        "parent_index": chunk.get("parent_index", 0),
+                        "source": file_name
+                    })
+                    ids.append(doc_id)
+            except Exception as e:
+                logger.error(f"Failed to read preseeded file {filepath.name}: {e}")
+
+        if documents:
+            try:
+                self.add_documents(documents, metadatas, ids)
+                logger.info(f"Successfully indexed {len(documents)} preseeded expert document chunks.")
+            except Exception as e:
+                logger.error(f"Failed to index preseeded document chunks: {e}")
 
     def add_documents(
         self, 
@@ -194,32 +251,129 @@ class RAGService:
         k: int = None,
         filter_dict: Dict = None
     ) -> List[Dict]:
-        """Search for relevant documents."""
+        """Search relevant documents using a hybrid vector + BM25 ranking and Parent retrieval."""
         k = k or CHROMA_SEARCH_K
 
         try:
+            # 1. Semantic Vector Search
             llm_service = get_llm_service()
             query_embedding = llm_service.embed_single(query)
 
+            db_count = self.count()
+            if not isinstance(db_count, int):
+                db_count = 0
+
             results = self.collection.query(
                 query_embeddings=[query_embedding],
-                n_results=k,
+                n_results=min(k * 2, db_count) if db_count > 0 else k,
                 where=filter_dict,
                 include=["documents", "metadatas", "distances"]
             )
 
-            documents = []
-            for i in range(len(results["documents"][0])):
-                documents.append({
-                    "content": results["documents"][0][i],
-                    "metadata": results["metadatas"][0][i] if results["metadatas"] else {},
-                    "distance": results["distances"][0][i] if results["distances"] else 0
-                })
+            vector_docs = []
+            if results and results.get("documents") and results["documents"][0]:
+                for i in range(len(results["documents"][0])):
+                    meta = results["metadatas"][0][i] if results["metadatas"] else {}
+                    vector_docs.append({
+                        "id": results["ids"][0][i] if results["ids"] else f"v_{i}",
+                        "content": results["documents"][0][i],
+                        "metadata": meta,
+                        "distance": results["distances"][0][i] if results["distances"] else 0.5
+                    })
 
-            return documents
+            # 2. Keyword TF-IDF Search over all candidates
+            all_docs_raw = self.collection.get()
+            all_docs = []
+            if all_docs_raw and all_docs_raw.get("ids"):
+                for i in range(len(all_docs_raw["ids"])):
+                    meta = all_docs_raw["metadatas"][i] if all_docs_raw["metadatas"] else {}
+                    all_docs.append({
+                        "id": all_docs_raw["ids"][i],
+                        "content": all_docs_raw["documents"][i] if all_docs_raw["documents"] else "",
+                        "metadata": meta
+                    })
+
+            keyword_docs = self._keyword_search(query, all_docs, k=k * 2)
+
+            # 3. Combine search scores via Reciprocal Rank Fusion (RRF)
+            merged_docs = self._reciprocal_rank_fusion(vector_docs, keyword_docs, k=k)
+
+            # 4. Resolve Content to Parent Chunk (Parent Retrieval)
+            for doc in merged_docs:
+                parent_text = doc["metadata"].get("parent_text", "")
+                if parent_text:
+                    doc["child_text"] = doc["content"]
+                    doc["content"] = parent_text
+
+            return merged_docs
         except Exception as e:
             logger.error(f"Search failed: {e}")
             return []
+
+    def _keyword_search(self, query: str, documents: List[Dict], k: int) -> List[Dict]:
+        """Simple TF-IDF ranking in Python for reliable keyword query hits."""
+        import re
+        from collections import Counter
+        import math
+
+        def tokenize(text):
+            return re.findall(r'\w+', text.lower())
+
+        query_tokens = tokenize(query)
+        if not query_tokens or not documents:
+            return []
+
+        N = len(documents)
+        doc_tokens_list = [tokenize(doc["content"]) for doc in documents]
+
+        # Calculate Document Frequency
+        df = Counter()
+        for tokens in doc_tokens_list:
+            for token in set(tokens):
+                df[token] += 1
+
+        scores = []
+        for i, doc in enumerate(documents):
+            tokens = doc_tokens_list[i]
+            tf = Counter(tokens)
+            doc_len = len(tokens)
+            if doc_len == 0:
+                continue
+
+            score = 0.0
+            for token in query_tokens:
+                if token in tf:
+                    # Smoothing IDF computation
+                    idf = math.log((N - df[token] + 0.5) / (df[token] + 0.5) + 1.0)
+                    idf = max(0.0001, idf)
+                    tf_val = tf[token] / doc_len
+                    score += tf_val * idf
+            if score > 0:
+                scores.append((score, doc))
+
+        scores.sort(key=lambda x: x[0], reverse=True)
+        return [item[1] for item in scores[:k]]
+
+    def _reciprocal_rank_fusion(self, vector_results: List[Dict], keyword_results: List[Dict], k: int) -> List[Dict]:
+        """Rank fusion combining vector and keyword hits."""
+        rrf_scores = {}
+        doc_lookup = {}
+
+        def get_doc_key(doc):
+            return doc.get("id") or doc.get("content")
+
+        for rank, doc in enumerate(vector_results):
+            key = get_doc_key(doc)
+            doc_lookup[key] = doc
+            rrf_scores[key] = rrf_scores.get(key, 0.0) + (1.0 / (60.0 + rank + 1.0))
+
+        for rank, doc in enumerate(keyword_results):
+            key = get_doc_key(doc)
+            doc_lookup[key] = doc
+            rrf_scores[key] = rrf_scores.get(key, 0.0) + (1.0 / (60.0 + rank + 1.0))
+
+        sorted_keys = sorted(rrf_scores.keys(), key=lambda x: rrf_scores[x], reverse=True)
+        return [doc_lookup[key] for key in sorted_keys[:k]]
 
     def get_context(self, query: str, k: int = None) -> str:
         """Get augmented context for a query."""
@@ -243,7 +397,7 @@ class RAGService:
             logger.error(f"Failed to delete document: {e}")
 
     def get_all_documents(self) -> List[Dict]:
-        """Get all documents in the collection."""
+        """Get all indexed documents."""
         try:
             results = self.collection.get()
             documents = []

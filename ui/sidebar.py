@@ -90,7 +90,7 @@ def render_sidebar():
             options=categories,
             index=cat_index,
             label_visibility="collapsed",
-            key="workspace_category_select"
+            key="_sb_cat_select"   # private key — never set from outside
         )
         st.session_state["active_category"] = active_category
 
@@ -110,7 +110,7 @@ def render_sidebar():
                 options=module_options,
                 index=mod_index,
                 label_visibility="collapsed",
-                key="workspace_module_radio"
+                key="_sb_mod_radio"   # private key — never set from outside
             )
         else:
             active_module_display = module_options[0]

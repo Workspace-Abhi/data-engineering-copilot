@@ -389,7 +389,7 @@ drift_stat, p_value = stats.ks_2samp(ref_data, curr_data)
 
         if selected_agent in REVERSE_MAP:
             cat, display_name = REVERSE_MAP[selected_agent]
-            # Only set non-widget keys; sidebar reads these to set its index
+            # Only set non-widget keys — sidebar reads these for index on rerun
             st.session_state["active_category"]       = cat
             st.session_state["active_module_display"] = display_name
             st.session_state["active_module"]         = selected_agent

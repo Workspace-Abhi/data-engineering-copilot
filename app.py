@@ -113,7 +113,7 @@ def inject_theme():
         color: {TEXT_SECONDARY} !important;
     }}
     /* ── Main text ── */
-    .stMarkdown, .stText, p, li, label {{ color: {TEXT_PRIMARY} !important; }}
+    .stMarkdown, .stText, p, li, label {{ color: rgb(0, 84, 163) !important; }}
     h1, h2, h3, h4, h5, h6 {{ color: {TEXT_PRIMARY} !important; }}
     /* ── Tabs ── */
     .stTabs [data-baseweb="tab-list"] {{

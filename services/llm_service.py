@@ -572,6 +572,8 @@ To exit Simulation Mode:
     def embed_single(self, text: str) -> List[float]:
         """Generate embedding for a single text."""
         result = self.embed([text])
+        return result[0] if result else []
+
 
 
 @st.cache_resource

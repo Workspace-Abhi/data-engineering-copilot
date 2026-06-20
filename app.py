@@ -182,22 +182,53 @@ def inject_theme():
         border-color: {ACCENT} !important;
         box-shadow: 0 0 0 2px rgba(56,189,248,0.2) !important;
     }}
-    /* ── Dropdowns ── */
+    /* ── Dropdowns & Select Popover (portal layer) ── */
     div[data-baseweb="select"] > div {{
         background-color: {INPUT_BG} !important;
         border-color: {TOGGLE_BORDER} !important;
         color: {TEXT_PRIMARY} !important;
     }}
-    div[data-baseweb="select"] span {{ color: {TEXT_PRIMARY} !important; }}
-    [data-baseweb="popover"], [data-baseweb="menu"] {{
+    div[data-baseweb="select"] span,
+    div[data-baseweb="select"] div {{
+        color: {TEXT_PRIMARY} !important;
+        background-color: transparent;
+    }}
+    /* Portal layer — rendered at body root, outside stApp */
+    body > div[data-baseweb="layer"],
+    body > div[data-baseweb="layer"] * {{
+        background-color: {INPUT_BG} !important;
+        color: {TEXT_PRIMARY} !important;
+    }}
+    [data-baseweb="popover"] {{
+        background-color: {INPUT_BG} !important;
+        border: 1px solid {BORDER} !important;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.35) !important;
+    }}
+    [data-baseweb="menu"] {{
         background-color: {INPUT_BG} !important;
         border: 1px solid {BORDER} !important;
     }}
     [data-baseweb="option"] {{
         background-color: {INPUT_BG} !important;
         color: {TEXT_PRIMARY} !important;
+        padding: 10px 14px !important;
     }}
-    [data-baseweb="option"]:hover, [aria-selected="true"][data-baseweb="option"] {{
+    [data-baseweb="option"]:hover {{
+        background-color: rgba(56,189,248,0.15) !important;
+        color: {ACCENT} !important;
+        cursor: pointer !important;
+    }}
+    [aria-selected="true"][data-baseweb="option"] {{
+        background-color: rgba(99,102,241,0.18) !important;
+        color: {ACCENT} !important;
+        font-weight: 600 !important;
+    }}
+    /* Cover all list items inside the popover */
+    ul[data-baseweb="menu"] li {{
+        background-color: {INPUT_BG} !important;
+        color: {TEXT_PRIMARY} !important;
+    }}
+    ul[data-baseweb="menu"] li:hover {{
         background-color: rgba(56,189,248,0.12) !important;
         color: {ACCENT} !important;
     }}

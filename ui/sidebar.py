@@ -139,6 +139,24 @@ def render_sidebar():
 
         from config.providers import PROVIDERS, get_api_key
 
+        # Provider auto-detection on first startup
+        if "ai_provider" not in st.session_state:
+            import os
+            detected_provider = "ollama"
+            if os.getenv("GOOGLE_API_KEY"):
+                detected_provider = "gemini"
+            elif os.getenv("OPENAI_API_KEY"):
+                detected_provider = "openai"
+            elif os.getenv("ANTHROPIC_API_KEY"):
+                detected_provider = "anthropic"
+                
+            st.session_state["ai_provider"] = detected_provider
+            st.session_state["model_config"] = {
+                "model": PROVIDERS[detected_provider]["default_model"],
+                "temperature": 0.7,
+                "max_tokens": 4096,
+            }
+
         # Provider radio
         provider_options  = list(PROVIDERS.keys())
         provider_labels   = [PROVIDERS[p]["name"] for p in provider_options]

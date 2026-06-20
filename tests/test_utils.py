@@ -91,6 +91,7 @@ class TestHelpers:
     @patch("requests.get")
     def test_check_ollama_status_running(self, mock_get):
         """Test check_ollama_status when Ollama is running."""
+        check_ollama_status.clear()
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {"models": [{"name": "llama3.2"}]}
@@ -103,6 +104,7 @@ class TestHelpers:
     @patch("requests.get")
     def test_check_ollama_status_not_running(self, mock_get):
         """Test check_ollama_status when Ollama is not running."""
+        check_ollama_status.clear()
         mock_get.side_effect = Exception("Connection refused")
         status = check_ollama_status()
         assert status["status"] == "not_running"

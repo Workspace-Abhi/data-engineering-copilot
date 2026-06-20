@@ -257,18 +257,33 @@ def inject_theme():
         border: 1px solid {BORDER} !important;
         border-radius: 8px !important; color: {CODE_COLOR} !important;
     }}
-    /* ── Chat ── */
+    /* ── Chat input area ── */
     [data-testid="stChatMessage"] {{
         background-color: {CARD_BG} !important;
         border: 1px solid {BORDER} !important; border-radius: 12px !important;
     }}
+    /* Bottom bar blends with app background, no bright box */
     [data-testid="stChatInputContainer"] {{
-        background-color: {SIDEBAR_BG} !important;
+        background-color: {APP_BG} !important;
         border-top: 1px solid {BORDER} !important;
+        padding: 12px 16px !important;
+        position: sticky !important;
+        bottom: 0 !important;
+    }}
+    [data-testid="stChatInput"] {{
+        background-color: {INPUT_BG} !important;
+        border: 1px solid {BORDER} !important;
+        border-radius: 12px !important;
+        box-shadow: 0 0 0 1px {BORDER} !important;
     }}
     [data-testid="stChatInput"] textarea {{
         background-color: {INPUT_BG} !important;
         color: {TEXT_PRIMARY} !important;
+        border: none !important;
+        border-radius: 12px !important;
+    }}
+    [data-testid="stChatInput"] textarea::placeholder {{
+        color: {TEXT_MUTED} !important;
     }}
     /* ── Misc ── */
     hr {{ border-color: {BORDER} !important; }}
@@ -279,11 +294,71 @@ def inject_theme():
     ::-webkit-scrollbar-thumb:hover {{ background: {ACCENT2}; }}
 </style>
 """, unsafe_allow_html=True)
+def inject_portal_fix():
+    """Inject JS MutationObserver to force dark/light text in Streamlit's
+    BaseWeb portal layer, which CSS injected via st.markdown cannot reach."""
+    dark = st.session_state.get("dark_mode", True)
+    if dark:
+        BG  = "#131628"
+        TXT = "#f3f4f6"
+        HOV = "#1e2540"
+        ACC = "#38bdf8"
+    else:
+        BG  = "#ffffff"
+        TXT = "#1e293b"
+        HOV = "#e0f2fe"
+        ACC = "#0284c7"
+
+    st.markdown(f"""
+    <script>
+    (function() {{
+        function stylePortal() {{
+            // Find ALL portal layers Streamlit appends to body
+            document.querySelectorAll('body > div[data-baseweb="layer"]').forEach(function(layer) {{
+                // Menus / popovers
+                layer.querySelectorAll('[data-baseweb="menu"],[data-baseweb="popover"]').forEach(function(el) {{
+                    el.style.setProperty('background-color', '{BG}', 'important');
+                    el.style.setProperty('border', '1px solid rgba(255,255,255,0.1)', 'important');
+                }});
+                // Each option row
+                layer.querySelectorAll('[data-baseweb="option"]').forEach(function(el) {{
+                    el.style.setProperty('background-color', '{BG}', 'important');
+                    el.style.setProperty('color', '{TXT}', 'important');
+                    el.onmouseenter = function() {{
+                        this.style.setProperty('background-color', '{HOV}', 'important');
+                        this.style.setProperty('color', '{ACC}', 'important');
+                    }};
+                    el.onmouseleave = function() {{
+                        this.style.setProperty('background-color', '{BG}', 'important');
+                        this.style.setProperty('color', '{TXT}', 'important');
+                    }};
+                }});
+                // All text spans inside
+                layer.querySelectorAll('span, li, p').forEach(function(el) {{
+                    el.style.setProperty('color', '{TXT}', 'important');
+                }});
+            }});
+        }}
+        // Run immediately
+        stylePortal();
+        // Watch for portal elements being added dynamically
+        var observer = new MutationObserver(function(mutations) {{
+            mutations.forEach(function(m) {{
+                if (m.addedNodes.length) stylePortal();
+            }});
+        }});
+        observer.observe(document.body, {{ childList: true, subtree: true }});
+    }})();
+    </script>
+    """, unsafe_allow_html=True)
+
+
 def main():
     """Main application entry point."""
 
     # Header
     inject_theme()
+    inject_portal_fix()
     st.markdown('<div class="main-header">🤖 Data Engineering Copilot</div>', unsafe_allow_html=True)
     st.markdown(f'<div class="sub-header">AI-Powered Data Engineering Assistant v{VERSION} | Multi-Agent System</div>', unsafe_allow_html=True)
 

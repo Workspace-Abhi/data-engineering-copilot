@@ -60,8 +60,7 @@ class FileParser:
             reader = PdfReader(BytesIO(content))
             text = ""
             for page in reader.pages:
-                text += page.extract_text() + "
-"
+                text += page.extract_text() + "\n"
             return {
                 "text": text,
                 "metadata": {
@@ -80,8 +79,7 @@ class FileParser:
         try:
             from docx import Document
             doc = Document(BytesIO(content))
-            text = "
-".join([para.text for para in doc.paragraphs])
+            text = "\n".join([para.text for para in doc.paragraphs])
             return {
                 "text": text,
                 "metadata": {
@@ -102,19 +100,12 @@ class FileParser:
         rows = list(reader)
 
         # Create a structured text representation
-        structured_text = f"CSV File: {file_name}
-"
-        structured_text += f"Columns: {', '.join(reader.fieldnames)}
-
-"
-        structured_text += f"Total Rows: {len(rows)}
-
-"
-        structured_text += "Sample Data (first 10 rows):
-"
+        structured_text = f"CSV File: {file_name}\n"
+        structured_text += f"Columns: {', '.join(reader.fieldnames)}\n\n"
+        structured_text += f"Total Rows: {len(rows)}\n\n"
+        structured_text += "Sample Data (first 10 rows):\n"
         for i, row in enumerate(rows[:10]):
-            structured_text += f"Row {i+1}: {json.dumps(row)}
-"
+            structured_text += f"Row {i+1}: {json.dumps(row)}\n"
 
         return {
             "text": structured_text,
@@ -132,21 +123,15 @@ class FileParser:
         try:
             import openpyxl
             wb = openpyxl.load_workbook(BytesIO(content))
-            text = f"Excel File: {file_name}
-"
-            text += f"Sheets: {wb.sheetnames}
-
-"
+            text = f"Excel File: {file_name}\n"
+            text += f"Sheets: {wb.sheetnames}\n\n"
 
             for sheet_name in wb.sheetnames:
                 sheet = wb[sheet_name]
-                text += f"--- Sheet: {sheet_name} ---
-"
+                text += f"--- Sheet: {sheet_name} ---\n"
                 for row in sheet.iter_rows(values_only=True):
-                    text += ", ".join([str(cell) if cell is not None else "" for cell in row]) + "
-"
-                text += "
-"
+                    text += ", ".join([str(cell) if cell is not None else "" for cell in row]) + "\n"
+                text += "\n"
 
             return {
                 "text": text,
@@ -166,11 +151,8 @@ class FileParser:
         text = content.decode('utf-8', errors='ignore')
         try:
             data = json.loads(text)
-            structured_text = f"JSON File: {file_name}
-"
-            structured_text += f"Type: {type(data).__name__}
-
-"
+            structured_text = f"JSON File: {file_name}\n"
+            structured_text += f"Type: {type(data).__name__}\n\n"
             structured_text += json.dumps(data, indent=2)[:5000]  # Limit size
             return {
                 "text": structured_text,
@@ -201,20 +183,14 @@ class FileParser:
         text = content.decode('utf-8', errors='ignore')
         try:
             nb = json.loads(text)
-            structured_text = f"Notebook: {file_name}
-"
-            structured_text += f"Cells: {len(nb.get('cells', []))}
-
-"
+            structured_text = f"Notebook: {file_name}\n"
+            structured_text += f"Cells: {len(nb.get('cells', []))}\n\n"
 
             for i, cell in enumerate(nb.get('cells', [])):
                 cell_type = cell.get('cell_type', 'unknown')
                 source = ''.join(cell.get('source', []))
-                structured_text += f"--- Cell {i+1} ({cell_type}) ---
-"
-                structured_text += source[:1000] + "
-
-"  # Limit per cell
+                structured_text += f"--- Cell {i+1} ({cell_type}) ---\n"
+                structured_text += source[:1000] + "\n\n"  # Limit per cell
 
             return {
                 "text": structured_text,

@@ -87,22 +87,39 @@ class Chunker:
 
     @staticmethod
     def chunk_document(text: str, file_type: str = "text") -> List[Dict]:
-        """Chunk a document based on its type."""
+        """Chunk a document using Parent-Child chunking to preserve code/context structure."""
         if file_type in ["py", "sql", "yaml", "yml", "json"]:
-            chunks = Chunker.chunk_code(text)
+            parent_chunks = Chunker.chunk_code(text, chunk_size=2000, chunk_overlap=200)
             chunk_type = "code"
         else:
-            chunks = Chunker.chunk_text(text)
+            parent_chunks = Chunker.chunk_text(text, chunk_size=1500, chunk_overlap=150)
             chunk_type = "text"
 
-        return [
-            {
-                "text": chunk,
-                "type": chunk_type,
-                "index": i
-            }
-            for i, chunk in enumerate(chunks)
-        ]
+        child_chunks = []
+        global_child_index = 0
+
+        for p_idx, p_text in enumerate(parent_chunks):
+            # Split the parent chunk into smaller child chunks for vector matching
+            if chunk_type == "code":
+                c_texts = Chunker.chunk_code(p_text, chunk_size=450, chunk_overlap=50)
+            else:
+                c_texts = Chunker.chunk_text(p_text, chunk_size=350, chunk_overlap=40)
+
+            # If sub-chunking returns nothing, fallback to parent text
+            if not c_texts:
+                c_texts = [p_text]
+
+            for c_text in c_texts:
+                child_chunks.append({
+                    "text": c_text,
+                    "parent_text": p_text,
+                    "parent_index": p_idx,
+                    "type": chunk_type,
+                    "index": global_child_index
+                })
+                global_child_index += 1
+
+        return child_chunks
 
 
 def chunk_text(text: str, **kwargs) -> List[str]:
@@ -113,6 +130,8 @@ def chunk_code(code: str, **kwargs) -> List[str]:
     """Convenience function for code chunking."""
     return Chunker.chunk_code(code, **kwargs)
 
-def chunk_document(text: str, **kwargs) -> List[Dict]:
+def chunk_document(text: str, file_type: str = "text", **kwargs) -> List[Dict]:
     """Convenience function for document chunking."""
-    return Chunker.chunk_document(text, **kwargs)
+    return Chunker.chunk_document(text, file_type, **kwargs)
+
+

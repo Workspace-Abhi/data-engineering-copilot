@@ -43,6 +43,8 @@ class DocumentManager:
                     **metadata,
                     "chunk_index": chunk["index"],
                     "chunk_type": chunk["type"],
+                    "parent_text": chunk.get("parent_text", ""),
+                    "parent_index": chunk.get("parent_index", 0),
                     "source": metadata.get("file_name", "unknown")
                 })
                 ids.append(doc_id)

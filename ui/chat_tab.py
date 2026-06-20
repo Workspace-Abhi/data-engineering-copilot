@@ -177,15 +177,17 @@ def render_chat_tab():
         router = get_router()
         agent_key, confidence = router.route(prompt)
 
-        rag_service = get_rag_service()
-        results = rag_service.search(prompt, k=3)
         context = ""
-        if results:
-            context_parts = []
-            for idx, r in enumerate(results):
-                source = r["metadata"].get("source", "Unknown")
-                context_parts.append(f"[Document {idx+1} from {source}]\n{r['content']}")
-            context = "\n\n".join(context_parts)
+        results = None
+        if st.session_state.get("enable_rag", True):
+            rag_service = get_rag_service()
+            results = rag_service.search(prompt, k=3)
+            if results:
+                context_parts = []
+                for idx, r in enumerate(results):
+                    source = r["metadata"].get("source", "Unknown")
+                    context_parts.append(f"[Document {idx+1} from {source}]\n{r['content']}")
+                context = "\n\n".join(context_parts)
 
         with st.chat_message("assistant"):
             agent_name = AGENTS.get(agent_key, {}).get("name", "AI Agent")

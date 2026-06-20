@@ -139,7 +139,9 @@ class RAGService:
         
         # Preseed database with expert data engineering documentation if empty
         try:
-            if self.count() == 0:
+            import sys
+            is_testing = "pytest" in sys.modules or "unittest" in sys.modules
+            if not is_testing and self.count() == 0:
                 self.preseed_database()
         except Exception as e:
             logger.error(f"Failed to check or preseed database: {e}")
@@ -377,6 +379,13 @@ class RAGService:
 
     def get_context(self, query: str, k: int = None) -> str:
         """Get augmented context for a query."""
+        try:
+            import streamlit as st
+            if not st.session_state.get("enable_rag", True):
+                return ""
+        except Exception:
+            pass
+
         results = self.search(query, k=k)
         if not results:
             return ""

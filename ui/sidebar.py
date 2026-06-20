@@ -240,6 +240,14 @@ def render_sidebar():
         if simulated_mode:
             st.info("🛠️ Simulated Mode is active.")
 
+        enable_rag = st.checkbox(
+            "Enable Knowledge Retrieval (RAG)",
+            value=True,
+            help="Retrieve context from the expert knowledge base to augment LLM answers.",
+            key="enable_rag_checkbox"
+        )
+        st.session_state["enable_rag"] = enable_rag
+
         st.divider()
 
         # ── Agent Overview ────────────────────────────────────────────

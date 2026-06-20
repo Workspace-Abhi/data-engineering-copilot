@@ -1,5 +1,6 @@
-import streamlit as st
 import os
+os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
+import streamlit as st
 import sys
 
 # Add project root to path

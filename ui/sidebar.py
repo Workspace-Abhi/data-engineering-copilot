@@ -12,6 +12,26 @@ def render_sidebar():
     with st.sidebar:
         st.title(f"⚙️ {APP_TITLE}")
         st.caption(f"v{VERSION}")
+        st.divider()
+
+        # Navigation
+        st.subheader("📂 Module Category")
+        categories = [
+            "🏠 Dashboard",
+            "💬 RAG & Chat",
+            "🛠️ Orchestration & Pipelines",
+            "💾 Models & Databases",
+            "🛡️ Quality & Governance",
+            "👥 Team & Reporting"
+        ]
+        active_category = st.radio(
+            "Select Workspace Category",
+            options=categories,
+            index=0,
+            label_visibility="collapsed",
+            key="workspace_category_radio"
+        )
+        st.session_state["active_category"] = active_category
 
         st.divider()
 

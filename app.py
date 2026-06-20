@@ -14,7 +14,10 @@ from ui import (
     render_cost_tab, render_migration_tab, render_observability_tab,
     render_catalog_tab, render_testing_tab, render_code_review_tab,
     render_streaming_tab, render_mlops_tab
-)# Setup logging
+)
+from ui.dashboard import render_dashboard_tab
+
+# Setup logging
 logger = setup_logging()
 
 # Page config
@@ -27,19 +30,21 @@ st.set_page_config(
 
 # Custom CSS for Premium Dark Glassmorphism Theme
 st.markdown("""
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
     .stApp {
-        background-color: #0b0f19;
+        background-color: #0a0d16;
         color: #f3f4f6;
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        font-family: 'Inter', sans-serif;
     }
     [data-testid="stSidebar"] {
-        background-color: #0f172a !important;
+        background-color: #0d0f1b !important;
         border-right: 1px solid rgba(255, 255, 255, 0.05);
     }
     .main-header {
         font-size: 2.8rem;
         font-weight: 900;
+        font-family: 'Outfit', sans-serif;
         background: linear-gradient(to right, #38bdf8, #818cf8, #c084fc);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
@@ -48,13 +53,14 @@ st.markdown("""
     }
     .sub-header {
         font-size: 1.1rem;
+        font-family: 'Inter', sans-serif;
         color: #94a3b8;
         margin-bottom: 2.2rem;
         font-weight: 400;
     }
     .stTabs [data-baseweb="tab-list"] {
         gap: 8px;
-        background-color: rgba(15, 23, 42, 0.6);
+        background-color: rgba(13, 15, 27, 0.6);
         padding: 6px;
         border-radius: 12px;
         border: 1px solid rgba(255, 255, 255, 0.05);
@@ -88,7 +94,7 @@ st.markdown("""
         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
     }
     .agent-card {
-        background: rgba(15, 23, 42, 0.45);
+        background: rgba(13, 15, 27, 0.45);
         backdrop-filter: blur(12px);
         -webkit-backdrop-filter: blur(12px);
         border: 1px solid rgba(255, 255, 255, 0.05);
@@ -102,12 +108,13 @@ st.markdown("""
         border-color: rgba(56, 189, 248, 0.4);
         transform: translateY(-2px);
         box-shadow: 0 10px 24px rgba(56, 189, 248, 0.15);
-        background: rgba(15, 23, 42, 0.6);
+        background: rgba(13, 15, 27, 0.6);
     }
     .agent-card h3 {
         margin-top: 0;
         color: #38bdf8;
         font-size: 1.15rem;
+        font-family: 'Outfit', sans-serif;
     }
     .agent-card p {
         color: #cbd5e1;
@@ -134,21 +141,21 @@ st.markdown("""
     }
     /* Glassmorphic elements */
     code, pre {
-        background-color: rgba(15, 23, 42, 0.5) !important;
+        background-color: rgba(13, 15, 27, 0.5) !important;
         border: 1px solid rgba(255, 255, 255, 0.05) !important;
         border-radius: 8px !important;
     }
     .streamlit-expanderHeader {
-        background-color: rgba(15, 23, 42, 0.4) !important;
+        background-color: rgba(13, 15, 27, 0.4) !important;
         border: 1px solid rgba(255, 255, 255, 0.05) !important;
         border-radius: 8px !important;
     }
     div[data-baseweb="select"] > div {
-        background-color: rgba(15, 23, 42, 0.6) !important;
+        background-color: rgba(13, 15, 27, 0.6) !important;
         border-color: rgba(255, 255, 255, 0.1) !important;
     }
     input, textarea {
-        background-color: rgba(15, 23, 42, 0.6) !important;
+        background-color: rgba(13, 15, 27, 0.6) !important;
         border-color: rgba(255, 255, 255, 0.1) !important;
     }
 </style>
@@ -164,78 +171,75 @@ def main():
     # Sidebar
     render_sidebar()
 
-    # Main tabs
-    tab_icons = {
-        "💬 Chat": "chat",
-        "🗃️ SQL": "sql", 
-        "🔥 Databricks": "databricks",
-        "🔷 ADF": "adf",
-        "📊 Dataverse": "dataverse",
-        "🐛 Jira": "jira",
-        "📝 Meetings": "meetings",
-        "📑 PPT": "ppt",
-        "⚡ Data Quality": "dq",
-        "🧱 dbt": "dbt",
-        "🌪️ Airflow": "airflow",
-        "🛠️ Terraform IaC": "terraform",
-        "🛡️ Governance": "governance",
-        "💰 Cost": "cost",
-        "🚢 Migration": "migration",
-        "👁️ Observability": "observability",
-        "📇 Catalog": "catalog",
-        "🧪 Testing": "testing",
-        "🔍 Code Review": "codereview",
-        "🌊 Streaming": "streaming",
-        "🤖 MLOps": "mlops",
-        "📚 Knowledge Base": "kb"
-    }
+    # Category routing
+    active_cat = st.session_state.get("active_category", "🏠 Dashboard")
 
-    tabs = st.tabs(list(tab_icons.keys()))
+    if active_cat == "🏠 Dashboard":
+        render_dashboard_tab()
+    
+    elif active_cat == "💬 RAG & Chat":
+        tab_names = ["💬 Chat", "📚 Knowledge Base"]
+        tabs = st.tabs(tab_names)
+        with tabs[0]:
+            render_chat_tab()
+        with tabs[1]:
+            render_kb_tab()
+            
+    elif active_cat == "🛠️ Orchestration & Pipelines":
+        tab_names = ["🔷 ADF", "🌪️ Airflow", "🔥 Databricks", "🌊 Streaming"]
+        tabs = st.tabs(tab_names)
+        with tabs[0]:
+            render_adf_tab()
+        with tabs[1]:
+            render_airflow_tab()
+        with tabs[2]:
+            render_databricks_tab()
+        with tabs[3]:
+            render_streaming_tab()
 
-    with tabs[0]:
-        render_chat_tab()
-    with tabs[1]:
-        render_sql_tab()
-    with tabs[2]:
-        render_databricks_tab()
-    with tabs[3]:
-        render_adf_tab()
-    with tabs[4]:
-        render_dataverse_tab()
-    with tabs[5]:
-        render_jira_tab()
-    with tabs[6]:
-        render_meeting_tab()
-    with tabs[7]:
-        render_ppt_tab()
-    with tabs[8]:
-        render_data_quality_tab()
-    with tabs[9]:
-        render_dbt_tab()
-    with tabs[10]:
-        render_airflow_tab()
-    with tabs[11]:
-        render_terraform_tab()
-    with tabs[12]:
-        render_governance_tab()
-    with tabs[13]:
-        render_cost_tab()
-    with tabs[14]:
-        render_migration_tab()
-    with tabs[15]:
-        render_observability_tab()
-    with tabs[16]:
-        render_catalog_tab()
-    with tabs[17]:
-        render_testing_tab()
-    with tabs[18]:
-        render_code_review_tab()
-    with tabs[19]:
-        render_streaming_tab()
-    with tabs[20]:
-        render_mlops_tab()
-    with tabs[21]:
-        render_kb_tab()
+    elif active_cat == "💾 Models & Databases":
+        tab_names = ["🗃️ SQL", "🧱 dbt", "📊 Dataverse", "📇 Catalog", "🤖 MLOps"]
+        tabs = st.tabs(tab_names)
+        with tabs[0]:
+            render_sql_tab()
+        with tabs[1]:
+            render_dbt_tab()
+        with tabs[2]:
+            render_dataverse_tab()
+        with tabs[3]:
+            render_catalog_tab()
+        with tabs[4]:
+            render_mlops_tab()
+
+    elif active_cat == "🛡️ Quality & Governance":
+        tab_names = ["⚡ Data Quality", "🛡️ Governance", "💰 Cost", "👁️ Observability", "🧪 Testing", "🔍 Code Review", "🛠️ Terraform IaC"]
+        tabs = st.tabs(tab_names)
+        with tabs[0]:
+            render_data_quality_tab()
+        with tabs[1]:
+            render_governance_tab()
+        with tabs[2]:
+            render_cost_tab()
+        with tabs[3]:
+            render_observability_tab()
+        with tabs[4]:
+            render_testing_tab()
+        with tabs[5]:
+            render_code_review_tab()
+        with tabs[6]:
+            render_terraform_tab()
+
+    elif active_cat == "👥 Team & Reporting":
+        tab_names = ["🐛 Jira", "📝 Meetings", "📑 PPT", "🚢 Migration"]
+        tabs = st.tabs(tab_names)
+        with tabs[0]:
+            render_jira_tab()
+        with tabs[1]:
+            render_meeting_tab()
+        with tabs[2]:
+            render_ppt_tab()
+        with tabs[3]:
+            render_migration_tab()
 
 
 if __name__ == "__main__":

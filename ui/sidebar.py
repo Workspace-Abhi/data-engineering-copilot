@@ -149,37 +149,101 @@ def render_sidebar():
 
         st.divider()
 
-        # Model Selector
-        st.subheader("🤖 Model Configuration")
-        available_models = ollama_status.get("models", [OLLAMA_MODEL])
+        # ── AI Provider & Model Configuration ────────────────────────
+        st.subheader("🤖 AI Provider")
+
+        from config.providers import PROVIDERS, get_api_key
+
+        # Provider radio
+        provider_options  = list(PROVIDERS.keys())
+        provider_labels   = [PROVIDERS[p]["name"] for p in provider_options]
+        current_provider  = st.session_state.get("ai_provider", "ollama")
+        if current_provider not in provider_options:
+            current_provider = "ollama"
+        prov_idx = provider_options.index(current_provider)
+
+        selected_label = st.radio(
+            "Provider",
+            options=provider_labels,
+            index=prov_idx,
+            label_visibility="collapsed",
+            key="_sb_provider_radio",
+        )
+        selected_provider = provider_options[provider_labels.index(selected_label)]
+        if selected_provider != st.session_state.get("ai_provider"):
+            st.session_state["ai_provider"] = selected_provider
+            # Reset model to provider default on switch
+            st.session_state["model_config"] = {
+                "model": PROVIDERS[selected_provider]["default_model"],
+                "temperature": 0.7,
+                "max_tokens": 4096,
+            }
+
+        prov_cfg = PROVIDERS[selected_provider]
+        st.caption(prov_cfg["description"])
+
+        # API Key input (for cloud providers)
+        if prov_cfg["requires_key"]:
+            env_key = get_api_key(selected_provider)
+            key_in_env = bool(env_key)
+            if key_in_env:
+                st.success(f"🔑 Key loaded from `.env` ({prov_cfg['env_key']})")
+                api_key = env_key
+            else:
+                api_key = st.text_input(
+                    f"🔑 {prov_cfg['short']} API Key",
+                    value=st.session_state.get(f"api_key_{selected_provider}", ""),
+                    type="password",
+                    placeholder=f"Enter your {prov_cfg['short']} API key...",
+                    key=f"_sb_apikey_{selected_provider}",
+                )
+            st.session_state[f"api_key_{selected_provider}"] = api_key
+        else:
+            st.session_state[f"api_key_{selected_provider}"] = ""
+
+        # Model selector — list depends on provider
+        if selected_provider == "ollama":
+            ollama_status = check_ollama_status()
+            available_models = ollama_status.get("models") or ["llama3.2", "mistral", "codellama"]
+        else:
+            available_models = prov_cfg["models"]
+
+        default_model = prov_cfg["default_model"]
+        current_model = st.session_state.get("model_config", {}).get("model", default_model)
+        if current_model not in available_models:
+            current_model = available_models[0] if available_models else default_model
+
         selected_model = st.selectbox(
-            "LLM Model",
+            "Model",
             options=available_models,
-            index=available_models.index(OLLAMA_MODEL) if OLLAMA_MODEL in available_models else 0
+            index=available_models.index(current_model) if current_model in available_models else 0,
+            key=f"_sb_model_{selected_provider}",
         )
 
-        # Temperature slider
         temperature = st.slider(
             "Temperature",
-            min_value=0.0,
-            max_value=1.0,
-            value=0.7,
-            step=0.1,
-            help="Lower = more deterministic, Higher = more creative"
+            min_value=0.0, max_value=1.0,
+            value=st.session_state.get("model_config", {}).get("temperature", 0.7),
+            step=0.05,
+            help="Lower = more deterministic, Higher = more creative",
         )
-
-        # Max tokens
         max_tokens = st.slider(
             "Max Tokens",
-            min_value=256,
-            max_value=8192,
-            value=4096,
-            step=256
+            min_value=256, max_value=8192,
+            value=st.session_state.get("model_config", {}).get("max_tokens", 4096),
+            step=256,
         )
+
+        # Persist model config
+        st.session_state["model_config"] = {
+            "model": selected_model,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        }
 
         st.divider()
 
-        # Agent Overview
+        # ── Agent Overview ────────────────────────────────────────────
         st.subheader("🎯 Available Agents")
         for agent_key, agent_config in AGENTS.items():
             with st.expander(f"{agent_config['icon']} {agent_config['name']}"):
@@ -188,13 +252,13 @@ def render_sidebar():
 
         st.divider()
 
-        # System Info
+        # ── System Info ───────────────────────────────────────────────
         with st.expander("ℹ️ System Info"):
             sys_info = get_system_info()
             for key, value in sys_info.items():
                 st.text(f"{key}: {value}")
 
-        # Session controls
+        # ── Session Controls ──────────────────────────────────────────
         st.divider()
         if st.button("🗑️ Clear Chat History", use_container_width=True):
             from services.conversation_memory import get_memory
@@ -203,9 +267,3 @@ def render_sidebar():
             st.success("Chat history cleared!")
             st.rerun()
 
-        # Store settings in session state
-        st.session_state["model_config"] = {
-            "model": selected_model,
-            "temperature": temperature,
-            "max_tokens": max_tokens
-        }

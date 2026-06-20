@@ -9,6 +9,7 @@ from config.logging_config import get_logger
 
 logger = get_logger("helpers")
 
+@st.cache_data(ttl=30)   # re-check Ollama every 30 seconds, not on every render
 def check_ollama_status() -> Dict:
     """Check if Ollama is running and list available models."""
     try:
@@ -27,6 +28,7 @@ def check_ollama_status() -> Dict:
     except Exception as e:
         return {"status": "not_running", "message": str(e)}
 
+@st.cache_data(ttl=300)  # system info changes very rarely — cache 5 min
 def get_system_info() -> Dict:
     """Get system information."""
     return {
@@ -37,6 +39,7 @@ def get_system_info() -> Dict:
         "machine": platform.machine(),
         "app_version": VERSION
     }
+
 
 def format_code_block(code: str, language: str = "") -> str:
     """Format code for display."""

@@ -640,7 +640,151 @@ To exit Simulation Mode:
 
 
 
-@st.cache_resource
-def get_llm_service() -> OllamaService:
-    """Get cached LLM service instance."""
-    return OllamaService()
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Unified LLM Service — routes to Ollama / OpenAI / Gemini / Anthropic
+# ──────────────────────────────────────────────────────────────────────────────
+
+class UnifiedLLMService:
+    """
+    Single interface that delegates to the provider selected in the sidebar.
+    Falls back to OllamaService simulation if the provider call fails.
+    """
+
+    def __init__(self, provider: str, model: str, api_key: str = ""):
+        self.provider   = provider   # "ollama" | "openai" | "gemini" | "anthropic"
+        self.model      = model
+        self.api_key    = api_key
+        self._ollama    = OllamaService()   # kept for embeddings + fallback simulation
+
+    # ------------------------------------------------------------------
+    def generate(
+        self,
+        prompt: str,
+        system_prompt: str = None,
+        temperature: float = 0.7,
+        max_tokens: int = 4096,
+        stream: bool = False,
+    ) -> str:
+        """Generate a response using the active provider."""
+        try:
+            if self.provider == "ollama":
+                return self._ollama.generate(
+                    prompt, system_prompt=system_prompt,
+                    temperature=temperature, max_tokens=max_tokens,
+                )
+            elif self.provider == "openai":
+                return self._openai_generate(prompt, system_prompt, temperature, max_tokens)
+            elif self.provider == "gemini":
+                return self._gemini_generate(prompt, system_prompt, temperature, max_tokens)
+            elif self.provider == "anthropic":
+                return self._anthropic_generate(prompt, system_prompt, temperature, max_tokens)
+            else:
+                return self._ollama.generate(prompt, system_prompt=system_prompt)
+        except Exception as e:
+            logger.error(f"[{self.provider}] generate failed: {e}")
+            # Graceful fallback to simulation
+            return self._ollama._simulated_generate(prompt, system_prompt)
+
+    # ------------------------------------------------------------------
+    def _openai_generate(self, prompt: str, system_prompt: str,
+                         temperature: float, max_tokens: int) -> str:
+        """Call OpenAI Chat Completions API."""
+        try:
+            from openai import OpenAI
+        except ImportError:
+            return "❌ OpenAI package not installed. Run: `pip install openai`"
+
+        if not self.api_key:
+            return "❌ No OpenAI API key provided. Enter it in the sidebar or set OPENAI_API_KEY in .env"
+
+        client = OpenAI(api_key=self.api_key)
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+
+        response = client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+        return response.choices[0].message.content or ""
+
+    # ------------------------------------------------------------------
+    def _gemini_generate(self, prompt: str, system_prompt: str,
+                         temperature: float, max_tokens: int) -> str:
+        """Call Google Gemini API."""
+        try:
+            import google.generativeai as genai
+        except ImportError:
+            return "❌ Google Generative AI package not installed. Run: `pip install google-generativeai`"
+
+        if not self.api_key:
+            return "❌ No Google API key provided. Enter it in the sidebar or set GOOGLE_API_KEY in .env"
+
+        genai.configure(api_key=self.api_key)
+        full_prompt = f"{system_prompt}\n\n{prompt}" if system_prompt else prompt
+
+        gen_config = genai.GenerationConfig(
+            temperature=temperature,
+            max_output_tokens=max_tokens,
+        )
+        model = genai.GenerativeModel(model_name=self.model, generation_config=gen_config)
+        response = model.generate_content(full_prompt)
+        return response.text or ""
+
+    # ------------------------------------------------------------------
+    def _anthropic_generate(self, prompt: str, system_prompt: str,
+                             temperature: float, max_tokens: int) -> str:
+        """Call Anthropic Claude API."""
+        try:
+            import anthropic
+        except ImportError:
+            return "❌ Anthropic package not installed. Run: `pip install anthropic`"
+
+        if not self.api_key:
+            return "❌ No Anthropic API key provided. Enter it in the sidebar or set ANTHROPIC_API_KEY in .env"
+
+        client = anthropic.Anthropic(api_key=self.api_key)
+        kwargs = dict(
+            model=self.model,
+            max_tokens=max_tokens,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=temperature,
+        )
+        if system_prompt:
+            kwargs["system"] = system_prompt
+
+        message = client.messages.create(**kwargs)
+        return message.content[0].text if message.content else ""
+
+    # ------------------------------------------------------------------
+    # Embeddings always go through Ollama (local)
+    def embed(self, texts: List[str]) -> List[List[float]]:
+        return self._ollama.embed(texts)
+
+    def embed_single(self, text: str) -> List[float]:
+        return self._ollama.embed_single(text)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Factory — reads active provider/model/key from session state each call
+# ──────────────────────────────────────────────────────────────────────────────
+
+def get_llm_service() -> UnifiedLLMService:
+    """
+    Return a UnifiedLLMService configured from st.session_state.
+    NOT cached with @st.cache_resource so provider switches take effect immediately.
+    """
+    provider  = st.session_state.get("ai_provider", "ollama")
+    model_cfg = st.session_state.get("model_config", {})
+
+    from config.providers import PROVIDERS
+    default_model = PROVIDERS.get(provider, {}).get("default_model", OLLAMA_MODEL)
+    model    = model_cfg.get("model", default_model)
+    api_key  = st.session_state.get(f"api_key_{provider}", "")
+
+    return UnifiedLLMService(provider=provider, model=model, api_key=api_key)

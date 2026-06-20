@@ -277,7 +277,7 @@ class TestUnifiedLLMService:
     def test_gemini_route(self, mock_gemini_gen):
         from services.llm_service import UnifiedLLMService
         mock_gemini_gen.return_value = Mock(text="Gemini response")
-        service = UnifiedLLMService(provider="gemini", model="gemini-1.5-flash", api_key="ai-key")
+        service = UnifiedLLMService(provider="gemini", model="gemini-2.0-flash", api_key="ai-key")
         res = service.generate("hello")
         assert res == "Gemini response"
 

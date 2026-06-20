@@ -25,7 +25,7 @@ PROVIDERS = {
         "name": "💎 Google Gemini",
         "short": "Gemini",
         "env_key": "GOOGLE_API_KEY",
-        "models": ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-flash", "gemini-1.5-pro"],
+        "models": ["gemini-2.0-flash", "gemini-2.5-flash"],
         "default_model": "gemini-2.0-flash",
         "requires_key": True,
         "description": "Google Gemini — great for long context and multimodal tasks.",

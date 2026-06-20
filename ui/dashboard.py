@@ -389,7 +389,9 @@ drift_stat, p_value = stats.ks_2samp(ref_data, curr_data)
 
         if selected_agent in REVERSE_MAP:
             cat, display_name = REVERSE_MAP[selected_agent]
-            # Only set non-widget keys — sidebar reads these for index on rerun
+            # Set the actual widget keys so that Streamlit renders them with these values!
+            st.session_state["_sb_cat_select"]        = cat
+            st.session_state["_sb_mod_radio"]         = display_name
             st.session_state["active_category"]       = cat
             st.session_state["active_module_display"] = display_name
             st.session_state["active_module"]         = selected_agent

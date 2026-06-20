@@ -43,11 +43,19 @@ def render_chat_tab():
 
         # Get RAG context
         rag_service = get_rag_service()
-        context = rag_service.get_context(prompt, k=3)
+        results = rag_service.search(prompt, k=3)
+        context = ""
+        if results:
+            context_parts = []
+            for idx, r in enumerate(results):
+                source = r["metadata"].get("source", "Unknown")
+                context_parts.append(f"[Document {idx+1} from {source}]\n{r['content']}")
+            context = "\n\n".join(context_parts)
 
         # Generate response based on agent
         with st.chat_message("assistant"):
-            with st.spinner(f"Consulting {AGENTS.get(agent_key, {}).get('name', 'AI')}..."):
+            agent_name = AGENTS.get(agent_key, {}).get("name", "AI Agent")
+            with st.spinner(f"Consulting {agent_name}..."):
                 llm_service = get_llm_service()
 
                 # Build system prompt based on agent
@@ -78,8 +86,26 @@ Provide a comprehensive, accurate response. Include code examples where applicab
                     max_tokens=st.session_state.get("model_config", {}).get("max_tokens", 4096)
                 )
 
-                st.write(response)
-                st.caption(f"🤖 Routed to {AGENTS.get(agent_key, {}).get('name', 'General Assistant')} (confidence: {confidence:.2f})")
+                # Show routing badge
+                st.caption(f"🤖 Routed to **{agent_name}** (Confidence: {confidence:.2f})")
+
+                # Show sources inside an expander if RAG matched documents
+                if results:
+                    with st.expander("📚 View Retrieved Reference Sources"):
+                        for idx, r in enumerate(results):
+                            src = r["metadata"].get("source", "Unknown")
+                            c_idx = r["metadata"].get("chunk_index", 0)
+                            st.markdown(f"**Source {idx+1}:** {src} (Chunk {c_idx})")
+                            st.text(r["content"][:400] + "...")
+
+                # Stream response text
+                def response_generator():
+                    import time
+                    for word in response.split(" "):
+                        yield word + " "
+                        time.sleep(0.015)
+                
+                st.write_stream(response_generator)
 
         # Add assistant message
         memory.add_message("assistant", response, agent=agent_key)

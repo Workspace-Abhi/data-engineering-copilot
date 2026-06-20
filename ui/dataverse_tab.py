@@ -8,15 +8,22 @@ logger = get_logger("dataverse_tab")
 
 def render_dataverse_tab():
     """Render the Dataverse agent interface."""
+    from utils.visualizers import render_data_lineage
+    
     st.header("📊 Dataverse Agent")
     st.caption("Entity mapping, ingestion, field types")
+
+    # Render architecture pipeline lineage
+    st.markdown(render_data_lineage("Gold"), unsafe_allow_html=True)
+    st.divider()
 
     dataverse_agent = get_dataverse_agent()
 
     sub_tab = st.radio(
         "Select Operation",
         ["💬 Chat", "🗺️ SQL to Dataverse Mapping", "📥 Ingestion Flow"],
-        horizontal=True
+        horizontal=True,
+        key="dataverse_operation_radio"
     )
 
     if sub_tab == "💬 Chat":
@@ -32,12 +39,13 @@ def render_dataverse_tab():
     elif sub_tab == "🗺️ SQL to Dataverse Mapping":
         st.info("Enter your SQL table schema to generate Dataverse entity mapping")
 
-        table_name = st.text_input("Table Name", "Customers")
+        table_name = st.text_input("Table Name", "Customers", key="dataverse_table_name")
         schema_input = st.text_area("SQL Schema (simplified)", 
                                    placeholder="ID INT PRIMARY KEY, Name NVARCHAR(100), Email NVARCHAR(255), CreatedDate DATETIME", 
-                                   height=100)
+                                   height=100,
+                                   key="dataverse_schema_input")
 
-        if st.button("Generate Mapping", type="primary"):
+        if st.button("Generate Mapping", type="primary", key="dataverse_mapping_btn"):
             columns = []
             for col in schema_input.split(","):
                 parts = col.strip().split()
@@ -64,13 +72,14 @@ def render_dataverse_tab():
             st.dataframe(field_data, use_container_width=True)
 
     elif sub_tab == "📥 Ingestion Flow":
-        source_entity = st.text_input("Source Entity", "dbo.Customers")
-        target_entity = st.text_input("Dataverse Entity", "cr234_customers")
+        source_entity = st.text_input("Source Entity", "dbo.Customers", key="dataverse_source_entity")
+        target_entity = st.text_input("Dataverse Entity", "cr234_customers", key="dataverse_target_entity")
 
         mapping_text = st.text_area("Column Mapping (source=target, one per line)", 
-                                   "CustomerID=cr234_customerid\nName=cr234_name\nEmail=cr234_email\nCreatedDate=cr234_createdon")
+                                   "CustomerID=cr234_customerid\nName=cr234_name\nEmail=cr234_email\nCreatedDate=cr234_createdon",
+                                   key="dataverse_mapping_text")
 
-        if st.button("Generate Flow", type="primary"):
+        if st.button("Generate Flow", type="primary", key="dataverse_flow_btn"):
             mapping = {}
             for line in mapping_text.strip().split("\n"):
                 if "=" in line:
@@ -79,4 +88,5 @@ def render_dataverse_tab():
 
             flow = dataverse_agent.generate_ingestion_flow(source_entity, target_entity, mapping)
             st.code(flow, language="python")
-            st.download_button("Download M Code", flow, file_name="ingestion_flow.m")
+            st.download_button("Download M Code", flow, file_name="ingestion_flow.m", key="dataverse_download_m_btn")
+

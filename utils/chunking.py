@@ -112,3 +112,7 @@ def chunk_text(text: str, **kwargs) -> List[str]:
 def chunk_code(code: str, **kwargs) -> List[str]:
     """Convenience function for code chunking."""
     return Chunker.chunk_code(code, **kwargs)
+
+def chunk_document(text: str, **kwargs) -> List[Dict]:
+    """Convenience function for document chunking."""
+    return Chunker.chunk_document(text, **kwargs)

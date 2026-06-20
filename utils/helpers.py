@@ -40,9 +40,7 @@ def get_system_info() -> Dict:
 
 def format_code_block(code: str, language: str = "") -> str:
     """Format code for display."""
-    return f"```{language}
-{code}
-```"
+    return f"```{language}\n{code}\n```"
 
 def format_agent_card(agent_name: str, agent_icon: str, description: str, 
                        keywords: List[str] = None) -> str:

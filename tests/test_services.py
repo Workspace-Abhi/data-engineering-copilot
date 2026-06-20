@@ -251,4 +251,53 @@ class TestHybridSearch:
         assert results[0]["metadata"]["graph_lineage_impact"][0]["entity"] == "raw_customers"
 
 
+class TestUnifiedLLMService:
+    """Test cases for UnifiedLLMService."""
+
+    @patch("services.llm_service.OllamaService.generate")
+    def test_ollama_route(self, mock_ollama_gen):
+        from services.llm_service import UnifiedLLMService
+        mock_ollama_gen.return_value = "Ollama response"
+        service = UnifiedLLMService(provider="ollama", model="llama3.2")
+        res = service.generate("hello")
+        assert res == "Ollama response"
+        mock_ollama_gen.assert_called_once_with(
+            "hello", system_prompt=None, temperature=0.7, max_tokens=4096
+        )
+
+    @patch("openai.resources.chat.completions.Completions.create")
+    def test_openai_route(self, mock_openai_create):
+        from services.llm_service import UnifiedLLMService
+        mock_openai_create.return_value = Mock(choices=[Mock(message=Mock(content="OpenAI response"))])
+        service = UnifiedLLMService(provider="openai", model="gpt-4o", api_key="sk-test")
+        res = service.generate("hello")
+        assert res == "OpenAI response"
+
+    @patch("google.generativeai.GenerativeModel.generate_content")
+    def test_gemini_route(self, mock_gemini_gen):
+        from services.llm_service import UnifiedLLMService
+        mock_gemini_gen.return_value = Mock(text="Gemini response")
+        service = UnifiedLLMService(provider="gemini", model="gemini-1.5-flash", api_key="ai-key")
+        res = service.generate("hello")
+        assert res == "Gemini response"
+
+    @patch("anthropic.resources.messages.Messages.create")
+    def test_anthropic_route(self, mock_anthropic_create):
+        from services.llm_service import UnifiedLLMService
+        mock_anthropic_create.return_value = Mock(content=[Mock(text="Anthropic response")])
+        service = UnifiedLLMService(provider="anthropic", model="claude-3-5-sonnet-20241022", api_key="an-key")
+        res = service.generate("hello")
+        assert res == "Anthropic response"
+
+    @patch("services.llm_service.OllamaService._simulated_generate")
+    def test_fallback_on_failure(self, mock_sim):
+        from services.llm_service import UnifiedLLMService
+        mock_sim.return_value = "Simulated response"
+        # Trigger an exception during OpenAI generate to check fallback
+        with patch("openai.resources.chat.completions.Completions.create", side_effect=Exception("API Error")):
+            service = UnifiedLLMService(provider="openai", model="gpt-4o", api_key="sk-key")
+            res = service.generate("hello")
+            assert res == "Simulated response"
+
+
 

@@ -87,6 +87,84 @@ AGENTS = {
         "icon": "📑",
         "description": "Executive presentation storylines and structure",
         "keywords": ["ppt", "presentation", "slide", "executive", "storyline", "deck", "powerpoint", "summary"]
+    },
+    "data_quality": {
+        "name": "Data Quality Agent",
+        "icon": "⚡",
+        "description": "Great Expectations suites and Soda Core data validation checks",
+        "keywords": ["quality", "expectations", "soda", "null", "validation", "profiling"]
+    },
+    "dbt": {
+        "name": "dbt Agent",
+        "icon": "🧱",
+        "description": "dbt models, schema tests, snapshots, and macros",
+        "keywords": ["dbt", "model", "snapshot", "macro", "jinja", "ref", "schema.yml"]
+    },
+    "airflow": {
+        "name": "Airflow Agent",
+        "icon": "🌪️",
+        "description": "Apache Airflow DAGs, TaskGroups, and File Sensors",
+        "keywords": ["airflow", "dag", "taskgroup", "sensor", "schedule", "operator"]
+    },
+    "terraform": {
+        "name": "Terraform IaC Agent",
+        "icon": "🛠️",
+        "description": "Terraform Infrastructure-as-Code for multi-cloud data lakes",
+        "keywords": ["terraform", "iac", "azure", "aws", "gcp", "hcl", "s3", "adls"]
+    },
+    "governance": {
+        "name": "Data Governance Agent",
+        "icon": "🛡️",
+        "description": "RBAC policies and column PII detection masking rules",
+        "keywords": ["governance", "rbac", "pii", "masking", "gdpr", "ccpa", "security"]
+    },
+    "cost": {
+        "name": "Cost Optimization Agent",
+        "icon": "💰",
+        "description": "Compute sizing calculator and storage lifecycle tiering policy",
+        "keywords": ["cost", "finops", "billing", "optimize", "sizing", "tiering"]
+    },
+    "migration": {
+        "name": "Data Migration Agent",
+        "icon": "🚢",
+        "description": "Schema migrations, feasibility assessments, and rollback plans",
+        "keywords": ["migration", "assess", "cutover", "rollback", "replicate"]
+    },
+    "observability": {
+        "name": "Observability Agent",
+        "icon": "👁️",
+        "description": "SLI/SLO pipelines targets and Prometheus metrics alert rules",
+        "keywords": ["observability", "sli", "slo", "sla", "alert", "prometheus", "grafana"]
+    },
+    "catalog": {
+        "name": "Data Catalog Agent",
+        "icon": "📇",
+        "description": "Markdown Data Dictionaries and Mermaid Source-to-Target Data Lineage charts",
+        "keywords": ["catalog", "dictionary", "lineage", "mermaid", "metadata"]
+    },
+    "testing": {
+        "name": "Data Testing Agent",
+        "icon": "🧪",
+        "description": "SQL reconciliation assertions and mock datasets insert queries",
+        "keywords": ["testing", "unit test", "mock", "assert", "insert"]
+    },
+    "code_review": {
+        "name": "Code Review Agent",
+        "icon": "🔍",
+        "description": "Review SQL, Python, or PySpark code snippets for anti-patterns and performance bottlenecks",
+        "keywords": ["review", "anti-pattern", "collect", "security", "lint"]
+    },
+    "streaming": {
+        "name": "Streaming Agent",
+        "icon": "🌊",
+        "description": "Spark Structured Streaming window aggregations and Apache Flink DDL/SQL queries",
+        "keywords": ["streaming", "kafka", "flink", "window", "watermark", "real-time"]
+    },
+    "mlops": {
+        "name": "MLOps Data Agent",
+        "icon": "🤖",
+        "description": "Feast Feature Store definitions and statistical data drift detection scripts",
+        "keywords": ["mlops", "feast", "feature", "drift", "dvc", "versioning"]
     }
 }
 

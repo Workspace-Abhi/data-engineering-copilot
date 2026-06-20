@@ -4,21 +4,17 @@ import sys
 
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
 from config.settings import APP_TITLE, APP_ICON, VERSION, THEME_COLORS
 from config.logging_config import setup_logging
-from ui.sidebar import render_sidebar
-from ui.chat_tab import render_chat_tab
-from ui.sql_tab import render_sql_tab
-from ui.databricks_tab import render_databricks_tab
-from ui.adf_tab import render_adf_tab
-from ui.dataverse_tab import render_dataverse_tab
-from ui.jira_tab import render_jira_tab
-from ui.meeting_tab import render_meeting_tab
-from ui.ppt_tab import render_ppt_tab
-from ui.kb_tab import render_kb_tab
-
-# Setup logging
+from ui import (
+    render_sidebar, render_chat_tab, render_sql_tab, render_databricks_tab,
+    render_adf_tab, render_dataverse_tab, render_jira_tab, render_meeting_tab,
+    render_ppt_tab, render_kb_tab, render_data_quality_tab, render_dbt_tab,
+    render_airflow_tab, render_terraform_tab, render_governance_tab,
+    render_cost_tab, render_migration_tab, render_observability_tab,
+    render_catalog_tab, render_testing_tab, render_code_review_tab,
+    render_streaming_tab, render_mlops_tab
+)# Setup logging
 logger = setup_logging()
 
 # Page config
@@ -178,6 +174,19 @@ def main():
         "🐛 Jira": "jira",
         "📝 Meetings": "meetings",
         "📑 PPT": "ppt",
+        "⚡ Data Quality": "dq",
+        "🧱 dbt": "dbt",
+        "🌪️ Airflow": "airflow",
+        "🛠️ Terraform IaC": "terraform",
+        "🛡️ Governance": "governance",
+        "💰 Cost": "cost",
+        "🚢 Migration": "migration",
+        "👁️ Observability": "observability",
+        "📇 Catalog": "catalog",
+        "🧪 Testing": "testing",
+        "🔍 Code Review": "codereview",
+        "🌊 Streaming": "streaming",
+        "🤖 MLOps": "mlops",
         "📚 Knowledge Base": "kb"
     }
 
@@ -200,7 +209,34 @@ def main():
     with tabs[7]:
         render_ppt_tab()
     with tabs[8]:
+        render_data_quality_tab()
+    with tabs[9]:
+        render_dbt_tab()
+    with tabs[10]:
+        render_airflow_tab()
+    with tabs[11]:
+        render_terraform_tab()
+    with tabs[12]:
+        render_governance_tab()
+    with tabs[13]:
+        render_cost_tab()
+    with tabs[14]:
+        render_migration_tab()
+    with tabs[15]:
+        render_observability_tab()
+    with tabs[16]:
+        render_catalog_tab()
+    with tabs[17]:
+        render_testing_tab()
+    with tabs[18]:
+        render_code_review_tab()
+    with tabs[19]:
+        render_streaming_tab()
+    with tabs[20]:
+        render_mlops_tab()
+    with tabs[21]:
         render_kb_tab()
+
 
 if __name__ == "__main__":
     main()

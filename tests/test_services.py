@@ -130,3 +130,125 @@ class TestChunkingParentChild:
             assert "parent_index" in chunk
             assert "This is a long document" in chunk["parent_text"]
 
+
+class TestCodeExecutionEngine:
+    """Test cases for CodeExecutionEngine."""
+
+    def test_execute_sql(self):
+        """Test safe SQL execution against SQLite in-memory DB."""
+        from services.code_execution_engine import CodeExecutionEngine
+        sql = "CREATE TABLE test (id INT); INSERT INTO test VALUES (1); SELECT * FROM test;"
+        res = CodeExecutionEngine.execute_sql(sql)
+        assert res["success"] is True
+        assert res["columns"] == ["id"]
+        assert res["rows"] == [(1,)]
+
+    def test_execute_python_safe(self):
+        """Test sandbox Python execution."""
+        from services.code_execution_engine import CodeExecutionEngine
+        code = "a = 5\nb = 10\nprint(a + b)"
+        res = CodeExecutionEngine.execute_python(code)
+        assert res["success"] is True
+        assert "15" in res["output"]
+        assert res["variables"]["a"] == "5"
+
+
+class TestGitIntegration:
+    """Test cases for GitIntegration."""
+
+    def test_create_branch_simulation(self):
+        """Test fallback git branch creation simulation."""
+        from services.git_integration import GitIntegrationService
+        service = GitIntegrationService()
+        res = service.create_branch("feature/test-branch")
+        assert res["success"] is True
+
+    def test_commit_changes_simulation(self):
+        """Test fallback git commit changes simulation."""
+        from services.git_integration import GitIntegrationService
+        service = GitIntegrationService()
+        res = service.commit_changes("feat: testing commits")
+        assert res["success"] is True
+
+
+class TestDbIntrospector:
+    """Test cases for DbIntrospector."""
+
+    def test_introspect_schema(self):
+        """Test schema extraction mapping."""
+        from services.db_introspector import DbIntrospectorService
+        service = DbIntrospectorService()
+        res = service.introspect_schema("connection_uri", "snowflake", "customers")
+        assert res["success"] is True
+        assert res["table_name"] == "customers"
+        assert len(res["columns"]) > 0
+
+
+class TestPipelineProfiler:
+    """Test cases for PipelineProfiler."""
+
+    def test_profile_explain_plan_spark(self):
+        """Test Spark explain plan parsing for Cartesian Product."""
+        from services.pipeline_profiler import PipelineProfilerService
+        service = PipelineProfilerService()
+        res = service.profile_explain_plan("CartesianProduct join in query execution plan", "spark")
+        assert res["has_bottlenecks"] is True
+        assert "Cartesian Product" in res["bottlenecks"][0]
+
+
+class TestMultiModalService:
+    """Test cases for MultiModalService."""
+
+    def test_parse_diagram_image(self):
+        """Test diagram image parsing converts to Mermaid schema."""
+        from services.multi_modal_service import MultiModalService
+        service = MultiModalService()
+        res = service.parse_diagram_image(b"fake_image_bytes", "er_diagram.png")
+        assert "erDiagram" in res
+
+
+class TestKnowledgeGraph:
+    """Test cases for KnowledgeGraphService."""
+
+    def test_find_downstream_dependencies(self):
+        """Test dependency tracking traversal."""
+        from services.knowledge_graph import KnowledgeGraphService
+        graph = KnowledgeGraphService()
+        
+        # In preseeded graph: raw_customers -> stg_customers -> dim_customers -> fact_sales
+        impacted = graph.find_downstream_dependencies("raw_customers")
+        assert "stg_customers" in impacted
+        assert "dim_customers" in impacted
+        assert "fact_sales" in impacted
+        assert "raw_customers" not in impacted
+
+    def test_query_relationships(self):
+        """Test finding immediate node relationships."""
+        from services.knowledge_graph import KnowledgeGraphService
+        graph = KnowledgeGraphService()
+        rels = graph.query_relationships("stg_customers")
+        assert len(rels) >= 2
+
+
+class TestHybridSearch:
+    """Test cases for HybridSearchService."""
+
+    @patch("services.hybrid_search.get_rag_service")
+    def test_search_injects_graph_metadata(self, mock_get_rag):
+        """Test that hybrid search adds lineage impact details into metadata."""
+        mock_rag = Mock()
+        mock_rag.search.return_value = [
+            {"id": "doc1", "content": "Referencing raw_customers schema", "metadata": {}}
+        ]
+        mock_get_rag.return_value = mock_rag
+
+        from services.hybrid_search import HybridSearchService
+        service = HybridSearchService()
+        results = service.search("query")
+        
+        assert len(results) == 1
+        assert "graph_lineage_impact" in results[0]["metadata"]
+        assert results[0]["metadata"]["graph_lineage_impact"][0]["entity"] == "raw_customers"
+
+
+

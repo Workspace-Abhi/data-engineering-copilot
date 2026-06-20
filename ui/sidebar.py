@@ -7,11 +7,26 @@ from services.llm_service import get_llm_service
 
 logger = get_logger("sidebar")
 
+def is_dark_mode() -> bool:
+    """Return True if the app is in dark (night) mode."""
+    return st.session_state.get("dark_mode", True)
+
 def render_sidebar():
     """Render the application sidebar."""
     with st.sidebar:
-        st.title(f"⚙️ {APP_TITLE}")
-        st.caption(f"v{VERSION}")
+        # ── Theme Toggle ──────────────────────────────────────────────
+        col_title, col_toggle = st.columns([3, 1])
+        with col_title:
+            st.title(f"⚙️ {APP_TITLE}")
+            st.caption(f"v{VERSION}")
+        with col_toggle:
+            st.write("")
+            st.write("")
+            dark = st.session_state.get("dark_mode", True)
+            label = "🌙" if dark else "☀️"
+            if st.button(label, key="theme_toggle_btn", help="Switch Day / Night mode"):
+                st.session_state["dark_mode"] = not dark
+                st.rerun()
         st.divider()
 
         # Navigation

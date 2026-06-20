@@ -63,8 +63,7 @@ class Chunker:
             return chunks
 
         # Fallback to line-based chunking
-        lines = code.split('
-')
+        lines = code.split('\n')
         chunks = []
         current_chunk = []
         current_size = 0
@@ -72,8 +71,7 @@ class Chunker:
         for line in lines:
             line_size = len(line) + 1
             if current_size + line_size > chunk_size and current_chunk:
-                chunks.append('
-'.join(current_chunk))
+                chunks.append('\n'.join(current_chunk))
                 # Keep overlap lines
                 overlap_lines = current_chunk[-chunk_overlap:] if len(current_chunk) > chunk_overlap else current_chunk
                 current_chunk = overlap_lines + [line]
@@ -83,8 +81,7 @@ class Chunker:
                 current_size += line_size
 
         if current_chunk:
-            chunks.append('
-'.join(current_chunk))
+            chunks.append('\n'.join(current_chunk))
 
         return chunks
 

@@ -21,3 +21,6 @@ sqlparse>=0.4.4
 PyYAML>=6.0.1
 tiktoken>=0.5.2
 httpx>=0.25.0
+openai
+google-generativeai>=0.8.6
+anthropic

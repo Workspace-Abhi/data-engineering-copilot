@@ -363,37 +363,4 @@ drift_stat, p_value = stats.ks_2samp(ref_data, curr_data)
     </div>
     """, unsafe_allow_html=True)
 
-    if st.button("🚀 Open Agent Page", type="primary", key="launch_agent_btn"):
-        REVERSE_MAP = {
-            "sql":          ("💾 Models & Databases",           "🗃️ SQL"),
-            "databricks":   ("🛠️ Orchestration & Pipelines",   "🔥 Databricks"),
-            "adf":          ("🛠️ Orchestration & Pipelines",   "🔷 ADF"),
-            "dataverse":    ("💾 Models & Databases",           "📊 Dataverse"),
-            "jira":         ("👥 Team & Reporting",             "🐛 Jira"),
-            "meeting":      ("👥 Team & Reporting",             "📝 Meetings"),
-            "ppt":          ("👥 Team & Reporting",             "📑 PPT"),
-            "data_quality": ("🛡️ Quality & Governance",        "⚡ Data Quality"),
-            "dbt":          ("💾 Models & Databases",           "🧱 dbt"),
-            "airflow":      ("🛠️ Orchestration & Pipelines",   "🌪️ Airflow"),
-            "terraform":    ("🛡️ Quality & Governance",        "🛠️ Terraform IaC"),
-            "governance":   ("🛡️ Quality & Governance",        "🛡️ Governance"),
-            "cost":         ("🛡️ Quality & Governance",        "💰 Cost"),
-            "migration":    ("👥 Team & Reporting",             "🚢 Migration"),
-            "observability":("🛡️ Quality & Governance",        "👁️ Observability"),
-            "catalog":      ("💾 Models & Databases",           "📇 Catalog"),
-            "testing":      ("🛡️ Quality & Governance",        "🧪 Testing"),
-            "code_review":  ("🛡️ Quality & Governance",        "🔍 Code Review"),
-            "streaming":    ("🛠️ Orchestration & Pipelines",   "🌊 Streaming"),
-            "mlops":        ("💾 Models & Databases",           "🤖 MLOps"),
-        }
-
-        if selected_agent in REVERSE_MAP:
-            cat, display_name = REVERSE_MAP[selected_agent]
-            # Set the actual widget keys so that Streamlit renders them with these values!
-            st.session_state["_sb_cat_select"]        = cat
-            st.session_state["_sb_mod_radio"]         = display_name
-            st.session_state["active_category"]       = cat
-            st.session_state["active_module_display"] = display_name
-            st.session_state["active_module"]         = selected_agent
-            st.rerun()
 

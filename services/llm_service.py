@@ -598,6 +598,9 @@ To exit Simulation Mode:
 
     def embed(self, texts: List[str]) -> List[List[float]]:
         """Generate embeddings with simulated fallback."""
+        if not texts:
+            return []
+
         if self._is_simulated():
             embeddings = []
             for text in texts:
@@ -608,28 +611,82 @@ To exit Simulation Mode:
                 embeddings.append(vector)
             return embeddings
 
-        embeddings = []
-        for text in texts:
+        # 1. Try batch API (/api/embed) first
+        try:
+            response = requests.post(
+                f"{self.base_url}/api/embed",
+                json={"model": self.embedding_model, "input": texts},
+                timeout=30
+            )
+            if response.status_code == 200:
+                data = response.json()
+                embeddings = data.get("embeddings")
+                if embeddings and isinstance(embeddings, list) and len(embeddings) == len(texts):
+                    logger.info(f"Generated batch embeddings for {len(texts)} texts via /api/embed")
+                    return embeddings
+                else:
+                    logger.warning(f"Batch embedding returned invalid structure or mismatch: {data}")
+            elif response.status_code == 404:
+                logger.info("/api/embed endpoint not found (older Ollama version). Falling back to /api/embeddings.")
+            else:
+                logger.warning(f"Batch embedding endpoint returned status {response.status_code}. Falling back.")
+        except Exception as e:
+            logger.warning(f"Batch embedding failed: {e}. Falling back to /api/embeddings.")
+
+        # 2. Fall back to parallel requests to /api/embeddings with thread pool
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        
+        embeddings = [None] * len(texts)
+        fallback_count = 0
+        use_mock_fallback = False
+        
+        def get_single_embedding(index, text):
+            nonlocal use_mock_fallback
+            if use_mock_fallback:
+                return index, None
+                
             try:
-                response = requests.post(
+                res = requests.post(
                     f"{self.base_url}/api/embeddings",
                     json={"model": self.embedding_model, "prompt": text},
-                    timeout=30
+                    timeout=10
                 )
-                response.raise_for_status()
-                data = response.json()
-                embedding = data.get("embedding")
-                if embedding is None or not isinstance(embedding, list):
-                    raise ValueError(f"Ollama returned invalid embedding: {data}")
-                embeddings.append(embedding)
-            except Exception as e:
-                logger.error(f"Embedding failed for text: {e}")
-                # Fallback to hash-based mock embedding
+                if res.status_code == 200:
+                    data = res.json()
+                    embedding = data.get("embedding")
+                    if embedding and isinstance(embedding, list):
+                        return index, embedding
+                
+                logger.error(f"Embedding request returned status {res.status_code} for text index {index}")
+                use_mock_fallback = True
+                return index, None
+            except Exception as ex:
+                logger.error(f"Embedding request failed: {ex} for text index {index}")
+                use_mock_fallback = True
+                return index, None
+
+        max_workers = min(10, len(texts))
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {executor.submit(get_single_embedding, i, text): i for i, text in enumerate(texts)}
+            for future in as_completed(futures):
+                idx, emb = future.result()
+                if emb is not None:
+                    embeddings[idx] = emb
+                else:
+                    fallback_count += 1
+                    
+        # For any None embeddings (due to errors or fast fallback triggered), compute mock hash-based embedding
+        for i in range(len(embeddings)):
+            if embeddings[i] is None:
                 import hashlib
-                h = hashlib.sha256(text.encode()).digest()
-                vector = [float(b) / 255.0 for b in h] * 12
-                embeddings.append(vector)
+                h = hashlib.sha256(texts[i].encode()).digest()
+                embeddings[i] = [float(b) / 255.0 for b in h] * 12
+                
+        if fallback_count > 0:
+            logger.warning(f"Ollama embeddings had {fallback_count} failures; fell back to mock embeddings for those.")
+            
         return embeddings
+
 
     def embed_single(self, text: str) -> List[float]:
         """Generate embedding for a single text."""

@@ -134,21 +134,6 @@ def render_sidebar():
             st.error("❌ Ollama Not Running")
             st.info(f"Start Ollama: `ollama serve`")
 
-        st.divider()
-
-        # Mode Setting
-        st.subheader("⚙️ Mode Setting")
-        simulated_mode = st.checkbox(
-            "Enable Simulated Mode (Mock LLM)",
-            value=not is_ollama_running,
-            help="Use high-fidelity local mock engines when Ollama is offline or not installed."
-        )
-        st.session_state["simulated_mode"] = simulated_mode
-        if simulated_mode:
-            st.info("🛠️ Simulated Mode is active.")
-
-        st.divider()
-
         # ── AI Provider & Model Configuration ────────────────────────
         st.subheader("🤖 AI Provider")
 
@@ -240,6 +225,20 @@ def render_sidebar():
             "temperature": temperature,
             "max_tokens": max_tokens,
         }
+
+        st.divider()
+
+        # Mode Setting
+        st.subheader("⚙️ Mode Setting")
+        simulated_mode = st.checkbox(
+            "Enable Simulated Mode (Mock LLM)",
+            value=not is_ollama_running if selected_provider == "ollama" else False,
+            help="Use high-fidelity local mock engines when Ollama is offline or not installed.",
+            key="simulated_mode_checkbox"
+        )
+        st.session_state["simulated_mode"] = simulated_mode
+        if simulated_mode:
+            st.info("🛠️ Simulated Mode is active.")
 
         st.divider()
 

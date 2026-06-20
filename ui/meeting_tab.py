@@ -22,7 +22,7 @@ def render_meeting_tab():
         query = st.text_area("Ask about meetings:", 
                             placeholder="Summarize this meeting... What are the key decisions from...", 
                             height=100)
-        if st.button("Submit", type="primary"):
+        if st.button("Submit", type="primary", key="meeting_submit"):
             if query:
                 with st.spinner("Analyzing..."):
                     response = meeting_agent.process(query)

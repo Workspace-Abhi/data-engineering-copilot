@@ -23,7 +23,7 @@ def render_dataverse_tab():
         query = st.text_area("Ask about Dataverse:", 
                             placeholder="How do I map SQL types to Dataverse? What's the best ingestion pattern for...", 
                             height=100)
-        if st.button("Submit", type="primary"):
+        if st.button("Submit", type="primary", key="dataverse_submit"):
             if query:
                 with st.spinner("Analyzing..."):
                     response = dataverse_agent.process(query)

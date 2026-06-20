@@ -22,7 +22,7 @@ def render_databricks_tab():
         query = st.text_area("Ask about Databricks/PySpark:", 
                             placeholder="How do I optimize a Delta table? Write a PySpark job for...", 
                             height=100)
-        if st.button("Submit", type="primary"):
+        if st.button("Submit", type="primary", key="databricks_submit"):
             if query:
                 with st.spinner("Analyzing..."):
                     response = databricks_agent.process(query)

@@ -23,7 +23,7 @@ def render_jira_tab():
         query = st.text_area("Ask about Jira/Agile:", 
                             placeholder="How should I group these issues? What's the best sprint allocation for...", 
                             height=100)
-        if st.button("Submit", type="primary"):
+        if st.button("Submit", type="primary", key="jira_submit"):
             if query:
                 with st.spinner("Analyzing..."):
                     response = jira_agent.process(query)

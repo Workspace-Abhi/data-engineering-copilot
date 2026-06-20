@@ -22,7 +22,7 @@ def render_sql_tab():
 
     if sub_tab == "💬 Chat":
         query = st.text_area("Ask about SQL:", placeholder="How do I optimize this query? Write a MERGE statement for...", height=100)
-        if st.button("Submit", type="primary"):
+        if st.button("Submit", type="primary", key="sql_submit"):
             if query:
                 with st.spinner("Analyzing..."):
                     response = sql_agent.process(query)

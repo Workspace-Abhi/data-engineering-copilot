@@ -23,7 +23,7 @@ def render_adf_tab():
         query = st.text_area("Ask about ADF:", 
                             placeholder="How do I design a pipeline for incremental loads? What's the best expression for...", 
                             height=100)
-        if st.button("Submit", type="primary"):
+        if st.button("Submit", type="primary", key="adf_submit"):
             if query:
                 with st.spinner("Analyzing..."):
                     response = adf_agent.process(query)

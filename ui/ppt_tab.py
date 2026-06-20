@@ -22,7 +22,7 @@ def render_ppt_tab():
         query = st.text_area("Ask about presentations:", 
                             placeholder="How should I structure this presentation? What's the best storyline for...", 
                             height=100)
-        if st.button("Submit", type="primary"):
+        if st.button("Submit", type="primary", key="ppt_submit"):
             if query:
                 with st.spinner("Analyzing..."):
                     response = ppt_agent.process(query)

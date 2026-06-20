@@ -24,14 +24,84 @@ def render_sidebar():
             "🛡️ Quality & Governance",
             "👥 Team & Reporting"
         ]
-        active_category = st.radio(
+        
+        CATEGORIES_MAP = {
+            "🏠 Dashboard": ["🏠 Dashboard"],
+            "💬 RAG & Chat": ["💬 Chat", "📚 Knowledge Base"],
+            "🛠️ Orchestration & Pipelines": ["🔷 ADF", "🌪️ Airflow", "🔥 Databricks", "🌊 Streaming"],
+            "💾 Models & Databases": ["🗃️ SQL", "🧱 dbt", "📊 Dataverse", "📇 Catalog", "🤖 MLOps"],
+            "🛡️ Quality & Governance": ["⚡ Data Quality", "🛡️ Governance", "💰 Cost", "👁️ Observability", "🧪 Testing", "🔍 Code Review", "🛠️ Terraform IaC"],
+            "👥 Team & Reporting": ["🐛 Jira", "📝 Meetings", "📑 PPT", "🚢 Migration"]
+        }
+        
+        MODULES_KEYS_MAP = {
+            "🏠 Dashboard": "dashboard",
+            "💬 Chat": "chat",
+            "📚 Knowledge Base": "kb",
+            
+            "🔷 ADF": "adf",
+            "🌪️ Airflow": "airflow",
+            "🔥 Databricks": "databricks",
+            "🌊 Streaming": "streaming",
+            
+            "🗃️ SQL": "sql",
+            "🧱 dbt": "dbt",
+            "📊 Dataverse": "dataverse",
+            "📇 Catalog": "catalog",
+            "🤖 MLOps": "mlops",
+            
+            "⚡ Data Quality": "data_quality",
+            "🛡️ Governance": "governance",
+            "💰 Cost": "cost",
+            "👁️ Observability": "observability",
+            "🧪 Testing": "testing",
+            "🔍 Code Review": "code_review",
+            "🛠️ Terraform IaC": "terraform",
+            
+            "🐛 Jira": "jira",
+            "📝 Meetings": "meeting",
+            "📑 PPT": "ppt",
+            "🚢 Migration": "migration"
+        }
+
+        # Determine current category from session state
+        default_cat = st.session_state.get("active_category", "🏠 Dashboard")
+        if default_cat not in categories:
+            default_cat = "🏠 Dashboard"
+        cat_index = categories.index(default_cat)
+
+        active_category = st.selectbox(
             "Select Workspace Category",
             options=categories,
-            index=0,
+            index=cat_index,
             label_visibility="collapsed",
-            key="workspace_category_radio"
+            key="workspace_category_select"
         )
         st.session_state["active_category"] = active_category
+
+        # Determine current module inside that category
+        module_options = CATEGORIES_MAP[active_category]
+        
+        if len(module_options) > 1:
+            st.write("")
+            st.subheader("🎯 Select Agent/View")
+            default_mod = st.session_state.get("active_module_display", module_options[0])
+            if default_mod not in module_options:
+                default_mod = module_options[0]
+            mod_index = module_options.index(default_mod)
+            
+            active_module_display = st.radio(
+                "Select Agent/View",
+                options=module_options,
+                index=mod_index,
+                label_visibility="collapsed",
+                key="workspace_module_radio"
+            )
+        else:
+            active_module_display = module_options[0]
+            
+        st.session_state["active_module_display"] = active_module_display
+        st.session_state["active_module"] = MODULES_KEYS_MAP[active_module_display]
 
         st.divider()
 

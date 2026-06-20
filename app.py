@@ -171,75 +171,55 @@ def main():
     # Sidebar
     render_sidebar()
 
-    # Category routing
-    active_cat = st.session_state.get("active_category", "🏠 Dashboard")
+    # Module routing
+    active_module = st.session_state.get("active_module", "dashboard")
 
-    if active_cat == "🏠 Dashboard":
+    if active_module == "dashboard":
         render_dashboard_tab()
-    
-    elif active_cat == "💬 RAG & Chat":
-        tab_names = ["💬 Chat", "📚 Knowledge Base"]
-        tabs = st.tabs(tab_names)
-        with tabs[0]:
-            render_chat_tab()
-        with tabs[1]:
-            render_kb_tab()
-            
-    elif active_cat == "🛠️ Orchestration & Pipelines":
-        tab_names = ["🔷 ADF", "🌪️ Airflow", "🔥 Databricks", "🌊 Streaming"]
-        tabs = st.tabs(tab_names)
-        with tabs[0]:
-            render_adf_tab()
-        with tabs[1]:
-            render_airflow_tab()
-        with tabs[2]:
-            render_databricks_tab()
-        with tabs[3]:
-            render_streaming_tab()
-
-    elif active_cat == "💾 Models & Databases":
-        tab_names = ["🗃️ SQL", "🧱 dbt", "📊 Dataverse", "📇 Catalog", "🤖 MLOps"]
-        tabs = st.tabs(tab_names)
-        with tabs[0]:
-            render_sql_tab()
-        with tabs[1]:
-            render_dbt_tab()
-        with tabs[2]:
-            render_dataverse_tab()
-        with tabs[3]:
-            render_catalog_tab()
-        with tabs[4]:
-            render_mlops_tab()
-
-    elif active_cat == "🛡️ Quality & Governance":
-        tab_names = ["⚡ Data Quality", "🛡️ Governance", "💰 Cost", "👁️ Observability", "🧪 Testing", "🔍 Code Review", "🛠️ Terraform IaC"]
-        tabs = st.tabs(tab_names)
-        with tabs[0]:
-            render_data_quality_tab()
-        with tabs[1]:
-            render_governance_tab()
-        with tabs[2]:
-            render_cost_tab()
-        with tabs[3]:
-            render_observability_tab()
-        with tabs[4]:
-            render_testing_tab()
-        with tabs[5]:
-            render_code_review_tab()
-        with tabs[6]:
-            render_terraform_tab()
-
-    elif active_cat == "👥 Team & Reporting":
-        tab_names = ["🐛 Jira", "📝 Meetings", "📑 PPT", "🚢 Migration"]
-        tabs = st.tabs(tab_names)
-        with tabs[0]:
-            render_jira_tab()
-        with tabs[1]:
-            render_meeting_tab()
-        with tabs[2]:
-            render_ppt_tab()
-        with tabs[3]:
-            render_migration_tab()
+    elif active_module == "chat":
+        render_chat_tab()
+    elif active_module == "kb":
+        render_kb_tab()
+    elif active_module == "sql":
+        render_sql_tab()
+    elif active_module == "databricks":
+        render_databricks_tab()
+    elif active_module == "adf":
+        render_adf_tab()
+    elif active_module == "dataverse":
+        render_dataverse_tab()
+    elif active_module == "jira":
+        render_jira_tab()
+    elif active_module == "meeting":
+        render_meeting_tab()
+    elif active_module == "ppt":
+        render_ppt_tab()
+    elif active_module == "data_quality":
+        render_data_quality_tab()
+    elif active_module == "dbt":
+        render_dbt_tab()
+    elif active_module == "airflow":
+        render_airflow_tab()
+    elif active_module == "terraform":
+        render_terraform_tab()
+    elif active_module == "governance":
+        render_governance_tab()
+    elif active_module == "cost":
+        render_cost_tab()
+    elif active_module == "migration":
+        render_migration_tab()
+    elif active_module == "observability":
+        render_observability_tab()
+    elif active_module == "catalog":
+        render_catalog_tab()
+    elif active_module == "testing":
+        render_testing_tab()
+    elif active_module == "code_review":
+        render_code_review_tab()
+    elif active_module == "streaming":
+        render_streaming_tab()
+    elif active_module == "mlops":
+        render_mlops_tab()
 
 
 if __name__ == "__main__":

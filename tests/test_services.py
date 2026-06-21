@@ -297,7 +297,9 @@ class TestUnifiedLLMService:
         with patch("openai.resources.chat.completions.Completions.create", side_effect=Exception("API Error")):
             service = UnifiedLLMService(provider="openai", model="gpt-4o", api_key="sk-key")
             res = service.generate("hello")
-            assert res == "Simulated response"
+            assert "Simulated response" in res
+            assert "[!WARNING]" in res
+            assert "openai" in res
 
 
 

@@ -284,7 +284,7 @@ class RAGService:
             )
 
             vector_docs = []
-            if results and results.get("documents") and results["documents"][0]:
+            if results and isinstance(results, dict) and results.get("documents") and results["documents"][0]:
                 for i in range(len(results["documents"][0])):
                     meta = results["metadatas"][0][i] if results["metadatas"] else {}
                     vector_docs.append({
@@ -297,7 +297,7 @@ class RAGService:
             # 2. Keyword TF-IDF Search over all candidates
             all_docs_raw = self.collection.get()
             all_docs = []
-            if all_docs_raw and all_docs_raw.get("ids"):
+            if all_docs_raw and isinstance(all_docs_raw, dict) and all_docs_raw.get("ids"):
                 for i in range(len(all_docs_raw["ids"])):
                     meta = all_docs_raw["metadatas"][i] if all_docs_raw["metadatas"] else {}
                     all_docs.append({

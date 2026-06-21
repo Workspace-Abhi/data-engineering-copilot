@@ -221,7 +221,7 @@ class RAGService:
         metadatas: List[Dict] = None,
         ids: List[str] = None
     ):
-        """Add documents to vector store."""
+        """Add documents to vector store in small batches to prevent Ollama connection issues."""
         if not documents:
             return
 
@@ -231,18 +231,29 @@ class RAGService:
         if metadatas is None:
             metadatas = [{} for _ in documents]
 
-        try:
-            # Generate embeddings via Ollama
-            llm_service = get_llm_service()
-            embeddings = llm_service.embed(documents)
+        batch_size = 50
+        total_docs = len(documents)
+        logger.info(f"Adding {total_docs} documents to ChromaDB in batches of {batch_size}...")
 
-            self.collection.add(
-                embeddings=embeddings,
-                documents=documents,
-                metadatas=metadatas,
-                ids=ids
-            )
-            logger.info(f"Added {len(documents)} documents to ChromaDB")
+        try:
+            llm_service = get_llm_service()
+            for start_idx in range(0, total_docs, batch_size):
+                end_idx = min(start_idx + batch_size, total_docs)
+                batch_docs = documents[start_idx:end_idx]
+                batch_meta = metadatas[start_idx:end_idx]
+                batch_ids = ids[start_idx:end_idx]
+
+                # Generate embeddings via Ollama for this batch
+                batch_embeddings = llm_service.embed(batch_docs)
+
+                self.collection.add(
+                    embeddings=batch_embeddings,
+                    documents=batch_docs,
+                    metadatas=batch_meta,
+                    ids=batch_ids
+                )
+                logger.info(f"Successfully indexed batch {start_idx // batch_size + 1} ({len(batch_docs)} documents)")
+            logger.info(f"Finished adding all {total_docs} documents to ChromaDB")
         except Exception as e:
             logger.error(f"Failed to add documents: {e}")
             raise

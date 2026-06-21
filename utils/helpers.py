@@ -9,6 +9,24 @@ from config.logging_config import get_logger
 
 logger = get_logger("helpers")
 
+def _try_ollama_url(url: str) -> Dict:
+    """Helper to try connecting to a specific Ollama URL."""
+    try:
+        import requests
+        response = requests.get(f"{url}/api/tags", timeout=3)
+        if response.status_code == 200:
+            data = response.json()
+            models = [m["name"] for m in data.get("models", [])]
+            return {
+                "status": "running",
+                "models": models,
+                "url": url
+            }
+        else:
+            return {"status": "error", "message": f"Status code: {response.status_code}", "url": url}
+    except Exception as e:
+        return {"status": "not_running", "message": str(e), "url": url}
+
 @st.cache_data(ttl=30)   # re-check Ollama every 30 seconds, not on every render
 def check_ollama_status(base_url: str = None) -> Dict:
     """Check if Ollama is running and list available models."""
@@ -17,21 +35,26 @@ def check_ollama_status(base_url: str = None) -> Dict:
             base_url = st.session_state.get("ollama_base_url", OLLAMA_BASE_URL)
         except Exception:
             base_url = OLLAMA_BASE_URL
-    try:
-        import requests
-        response = requests.get(f"{base_url}/api/tags", timeout=5)
-        if response.status_code == 200:
-            data = response.json()
-            models = [m["name"] for m in data.get("models", [])]
-            return {
-                "status": "running",
-                "models": models,
-                "url": base_url
-            }
-        else:
-            return {"status": "error", "message": f"Status code: {response.status_code}"}
-    except Exception as e:
-        return {"status": "not_running", "message": str(e)}
+
+    res = _try_ollama_url(base_url)
+    if res["status"] == "running":
+        return res
+
+    # Fallback loopback check (resolve localhost -> 127.0.0.1 for IPv6 vs IPv4 lookup issues on Windows)
+    if "localhost" in base_url:
+        fallback_url = base_url.replace("localhost", "127.0.0.1")
+        logger.info(f"Ollama check failed for {base_url}. Trying IPv4 loopback: {fallback_url}")
+        fallback_res = _try_ollama_url(fallback_url)
+        if fallback_res["status"] == "running":
+            try:
+                st.session_state["ollama_base_url"] = fallback_url
+            except Exception:
+                pass
+            return fallback_res
+
+    # Log connection failure
+    logger.warning(f"Ollama connection check failed for {base_url}: {res.get('message')}")
+    return res
 
 @st.cache_data(ttl=300)  # system info changes very rarely — cache 5 min
 def get_system_info() -> Dict:

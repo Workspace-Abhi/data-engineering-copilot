@@ -48,12 +48,17 @@ class OllamaService:
         """Helper to check if simulated mode should be active."""
         try:
             # Check Streamlit session state
-            if st.session_state.get("simulated_mode", False):
-                return True
+            if "simulated_mode" in st.session_state:
+                return st.session_state["simulated_mode"]
         except Exception:
-            # Check environment variable for testing/CLI
-            if os.environ.get("SIMULATED_MODE") == "True":
-                return True
+            pass
+            
+        # Check environment variable for testing/CLI
+        if os.environ.get("SIMULATED_MODE") == "True":
+            return True
+        elif os.environ.get("SIMULATED_MODE") == "False":
+            return False
+            
         # If Ollama is not connected, default to simulated mode to prevent errors
         return not self.check_connection()
 
@@ -514,7 +519,14 @@ To exit Simulation Mode:
             return data.get("response", "")
         except Exception as e:
             logger.error(f"Generation failed: {e}")
-            return self._simulated_generate(prompt, system_prompt)
+            fallback_res = self._simulated_generate(prompt, system_prompt)
+            warning_msg = f"""> [!WARNING]
+> **Ollama connection or generation failed**: `{e}`.
+> Falling back to **Simulation Mode** (showing mock response templates).
+> Please check if Ollama is running (`ollama serve`) and if the model `{self.model}` is pulled.
+
+"""
+            return warning_msg + fallback_res
 
     def _stream_generate(self, payload: Dict) -> Generator[str, None, None]:
         """Stream generation."""
@@ -621,7 +633,7 @@ To exit Simulation Mode:
             if response.status_code == 200:
                 data = response.json()
                 embeddings = data.get("embeddings")
-                if embeddings and isinstance(embeddings, list) and len(embeddings) == len(texts):
+                if embeddings and isinstance(embeddings, list) and len(embeddings) == len(texts) and all(e is not None for e in embeddings):
                     logger.info(f"Generated batch embeddings for {len(texts)} texts via /api/embed")
                     return embeddings
                 else:
@@ -709,11 +721,11 @@ class UnifiedLLMService:
     Falls back to OllamaService simulation if the provider call fails.
     """
 
-    def __init__(self, provider: str, model: str, api_key: str = ""):
+    def __init__(self, provider: str, model: str, api_key: str = "", base_url: str = None):
         self.provider   = provider   # "ollama" | "openai" | "gemini" | "anthropic"
         self.model      = model
         self.api_key    = api_key
-        self._ollama    = OllamaService()   # kept for embeddings + fallback simulation
+        self._ollama    = OllamaService(model=model, base_url=base_url)   # kept for embeddings + fallback simulation
 
     # ------------------------------------------------------------------
     def generate(
@@ -742,7 +754,14 @@ class UnifiedLLMService:
         except Exception as e:
             logger.error(f"[{self.provider}] generate failed: {e}")
             # Graceful fallback to simulation
-            return self._ollama._simulated_generate(prompt, system_prompt)
+            fallback_res = self._ollama._simulated_generate(prompt, system_prompt)
+            warning_msg = f"""> [!WARNING]
+> **Failed to connect to the selected AI provider ({self.provider})**: `{e}`.
+> Falling back to **Simulation Mode** (showing mock response templates).
+> Please check your connection, API keys, or if Ollama is running and the model is pulled.
+
+"""
+            return warning_msg + fallback_res
 
     # ------------------------------------------------------------------
     def _openai_generate(self, prompt: str, system_prompt: str,
@@ -843,5 +862,6 @@ def get_llm_service() -> UnifiedLLMService:
     default_model = PROVIDERS.get(provider, {}).get("default_model", OLLAMA_MODEL)
     model    = model_cfg.get("model", default_model)
     api_key  = st.session_state.get(f"api_key_{provider}", "")
+    ollama_base_url = st.session_state.get("ollama_base_url", OLLAMA_BASE_URL)
 
-    return UnifiedLLMService(provider=provider, model=model, api_key=api_key)
+    return UnifiedLLMService(provider=provider, model=model, api_key=api_key, base_url=ollama_base_url)

@@ -120,20 +120,6 @@ def render_sidebar():
 
         st.divider()
 
-        # System Status
-        st.subheader("🔌 System Status")
-        ollama_status = check_ollama_status()
-        is_ollama_running = (ollama_status["status"] == "running")
-
-        if is_ollama_running:
-            st.success("✅ Ollama Connected")
-            with st.expander("Available Models"):
-                for model in ollama_status.get("models", []):
-                    st.text(f"• {model}")
-        else:
-            st.error("❌ Ollama Not Running")
-            st.info(f"Start Ollama: `ollama serve`")
-
         # ── AI Provider & Model Configuration ────────────────────────
         st.subheader("🤖 AI Provider")
 
@@ -185,6 +171,18 @@ def render_sidebar():
         prov_cfg = PROVIDERS[selected_provider]
         st.caption(prov_cfg["description"])
 
+        # Ollama URL configuration
+        from config.settings import OLLAMA_BASE_URL
+        ollama_url = st.session_state.get("ollama_base_url", OLLAMA_BASE_URL)
+        if selected_provider == "ollama":
+            ollama_url = st.text_input(
+                "🔗 Ollama Base URL",
+                value=ollama_url,
+                placeholder="http://localhost:11434",
+                key="ollama_base_url_input"
+            )
+            st.session_state["ollama_base_url"] = ollama_url
+
         # API Key input (for cloud providers)
         if prov_cfg["requires_key"]:
             env_key = get_api_key(selected_provider)
@@ -205,8 +203,10 @@ def render_sidebar():
             st.session_state[f"api_key_{selected_provider}"] = ""
 
         # Model selector — list depends on provider
+        ollama_status = check_ollama_status(ollama_url)
+        is_ollama_running = (ollama_status["status"] == "running")
+
         if selected_provider == "ollama":
-            ollama_status = check_ollama_status()
             available_models = ollama_status.get("models") or ["llama3.2", "mistral", "codellama"]
         else:
             available_models = prov_cfg["models"]
@@ -243,6 +243,44 @@ def render_sidebar():
             "temperature": temperature,
             "max_tokens": max_tokens,
         }
+
+        st.divider()
+
+        # ── System Status ────────────────────────────────────────────
+        st.subheader("🔌 System Status")
+        if selected_provider == "ollama":
+            if is_ollama_running:
+                st.success("✅ Ollama Connected")
+                
+                # Model verification check
+                pulled_models = ollama_status.get("models", [])
+                selected_model_base = selected_model.split(":")[0]
+                is_model_pulled = any(m.split(":")[0] == selected_model_base or m == selected_model for m in pulled_models)
+                
+                if not is_model_pulled:
+                    st.warning(f"⚠️ Model `{selected_model}` is not pulled. Run `ollama pull {selected_model}` in your terminal.")
+                
+                # Embedding model verification check
+                from config.settings import OLLAMA_EMBEDDING_MODEL
+                emb_model_base = OLLAMA_EMBEDDING_MODEL.split(":")[0]
+                is_emb_pulled = any(m.split(":")[0] == emb_model_base or m == OLLAMA_EMBEDDING_MODEL for m in pulled_models)
+                
+                if not is_emb_pulled:
+                    st.warning(f"⚠️ Embedding model `{OLLAMA_EMBEDDING_MODEL}` is not pulled. Run `ollama pull {OLLAMA_EMBEDDING_MODEL}` to enable semantic search.")
+                
+                with st.expander("Available Models"):
+                    for model in pulled_models:
+                        st.text(f"• {model}")
+            else:
+                st.error("❌ Ollama Not Running")
+                st.info(f"Start Ollama: `ollama serve` at {ollama_url}")
+        else:
+            # For cloud provider, local Ollama is only needed for embeddings
+            st.success(f"✅ Cloud API Activated ({prov_cfg['short']})")
+            if is_ollama_running:
+                st.caption(f"🟢 Local Ollama active at {ollama_url} (for RAG embeddings)")
+            else:
+                st.warning(f"⚠️ Local Ollama not running at {ollama_url}. RAG embeddings will use mock simulation fallback.")
 
         st.divider()
 

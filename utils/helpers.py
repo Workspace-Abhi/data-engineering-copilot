@@ -10,18 +10,23 @@ from config.logging_config import get_logger
 logger = get_logger("helpers")
 
 @st.cache_data(ttl=30)   # re-check Ollama every 30 seconds, not on every render
-def check_ollama_status() -> Dict:
+def check_ollama_status(base_url: str = None) -> Dict:
     """Check if Ollama is running and list available models."""
+    if base_url is None:
+        try:
+            base_url = st.session_state.get("ollama_base_url", OLLAMA_BASE_URL)
+        except Exception:
+            base_url = OLLAMA_BASE_URL
     try:
         import requests
-        response = requests.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=5)
+        response = requests.get(f"{base_url}/api/tags", timeout=5)
         if response.status_code == 200:
             data = response.json()
             models = [m["name"] for m in data.get("models", [])]
             return {
                 "status": "running",
                 "models": models,
-                "url": OLLAMA_BASE_URL
+                "url": base_url
             }
         else:
             return {"status": "error", "message": f"Status code: {response.status_code}"}

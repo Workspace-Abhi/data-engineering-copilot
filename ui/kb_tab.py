@@ -127,6 +127,26 @@ def render_kb_tab():
         col3.metric("Status", "Active")
 
         st.divider()
+        st.subheader("🧹 Database Operations")
+        if st.button("🔥 WIPE & RESEED KNOWLEDGE BASE", use_container_width=True, help="Permanently wipes the vector store and re-indexes all preseeded documents."):
+            with st.spinner("Wiping and reseeding vector store... This will read, chunk, and embed all 1,200+ blueprints. Please wait."):
+                try:
+                    from services.rag_service import get_rag_service
+                    rag = get_rag_service()
+                    # Check if fallback or ChromaDB
+                    if hasattr(rag.collection, "get"):
+                        all_docs = rag.collection.get()
+                        if all_docs and all_docs.get("ids"):
+                            rag.collection.delete(ids=all_docs["ids"])
+                    
+                    # Run preseed database
+                    rag.preseed_database()
+                    st.success("🎉 Knowledge base wiped and reseeded successfully with 1,200+ items!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Failed to reseed database: {e}")
+
+        st.divider()
         st.subheader("Supported File Types")
         file_types = {
             "📄 PDF": "Research papers, architecture docs",

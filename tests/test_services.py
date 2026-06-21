@@ -156,19 +156,25 @@ class TestCodeExecutionEngine:
 class TestGitIntegration:
     """Test cases for GitIntegration."""
 
-    def test_create_branch_simulation(self):
+    @patch("services.git_integration.GitIntegrationService.run_git_command")
+    def test_create_branch_simulation(self, mock_run):
         """Test fallback git branch creation simulation."""
+        mock_run.return_value = {"success": True, "stdout": "Switched to branch"}
         from services.git_integration import GitIntegrationService
         service = GitIntegrationService()
         res = service.create_branch("feature/test-branch")
         assert res["success"] is True
+        mock_run.assert_called_once_with(["checkout", "-b", "feature/test-branch"], cwd=".")
 
-    def test_commit_changes_simulation(self):
+    @patch("services.git_integration.GitIntegrationService.run_git_command")
+    def test_commit_changes_simulation(self, mock_run):
         """Test fallback git commit changes simulation."""
+        mock_run.return_value = {"success": True, "stdout": "committed"}
         from services.git_integration import GitIntegrationService
         service = GitIntegrationService()
         res = service.commit_changes("feat: testing commits")
         assert res["success"] is True
+        assert mock_run.call_count == 2  # add and commit
 
 
 class TestDbIntrospector:
